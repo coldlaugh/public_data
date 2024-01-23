@@ -8,7 +8,7 @@
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_swinging_arm/tensor.bytes",
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_swinging_arm/metadata.tsv",
-      "dataCitation": "Citation"
+      "dataCitation": "Fu, J. et al. Multi-enzyme complexes on DNA scaffolds capable of substrate channelling with an artificial swinging arm. Nat. Nanotechnol. 9, 531–536 (2014)."
     },
     {
       "tensorName": "PreQ 1",
@@ -17,7 +17,8 @@
         96
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/preQ_1/tensor.bytes",
-      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/preQ_1/metadata.tsv"
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/preQ_1/metadata.tsv",
+      "dataCitation": "Suddala, K. C., Wang, J., Hou, Q. & Walter, N. G. Mg2+ Shifts Ligand-Mediated Folding of a Riboswitch from Induced-Fit to Conformational Selection. J. Am. Chem. Soc. 137, 14075–14083 (2015)."
     },
     {
       "tensorName": "DNA Walker",
@@ -27,7 +28,7 @@
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_walker/tensor.bytes",
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_walker/metadata.tsv",
-      "dataCitation": "Li, Jieming, et al. Exploring the speed limit of toehold exchange with a cartwheeling DNA acrobat. Nature nanotechnology 13.8 (2018): 723-729."
+      "dataCitation": "Li, J. et al. Exploring the speed limit of toehold exchange with a cartwheeling DNA acrobat. Nat. Nanotechnol. 13, 723–729 (2018)."
     },
     {
       "tensorName": "Riboswitch",
@@ -36,7 +37,8 @@
         96
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/riboswitch/tensor.bytes",
-      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/riboswitch/metadata.tsv"
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/riboswitch/metadata.tsv",
+      "dataCitation": "Suddala, K. C. et al. Local-to-global signal transduction at the core of a Mn2+ sensing riboswitch. Nat. Commun. 10, 4304 (2019)."
     },
     {
       "tensorName": "Kinetic Fingerprinting",
@@ -46,7 +48,7 @@
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simreps/tensor.bytes",
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simreps/metadata.tsv",
-      "dataCitation": "Johnson-Buck, Alexander, et al. Kinetic fingerprinting to identify and count single nucleic acids. Nature biotechnology 33.7 (2015): 730-732."
+      "dataCitation": "Hayward, S. L. et al. Ultraspecific and amplification-free quantification of mutant DNA by single-molecule kinetic fingerprinting. J. Am. Chem. Soc. 140, 11755–11762 (2018)."
     },
     {
       "tensorName": "Photobleach steps counting",
@@ -64,7 +66,8 @@
         96
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/transcriptional_complex/tensor.bytes",
-      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/transcriptional_complex/metadata.tsv"
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/transcriptional_complex/metadata.tsv",
+      "dataCitation": "Widom, J. R. et al. Ligand modulates cross-coupling between riboswitch folding and transcriptional pausing. Mol. Cell 72, 541–552 (2018). e6."
     },
     {
       "tensorName": "Simulaiton - Noise Level",
