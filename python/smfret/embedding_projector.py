@@ -5,7 +5,6 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-from sciplotlib import style as spstyle
 from smfret.dataset import FRETTraceSet
 
 def trim(x, precision=4):
@@ -19,17 +18,16 @@ def trim(x, precision=4):
 def generate_sprite_plot(log_dir, trace_set):
     """Generates the .png file for sprite image of traces."""
     image_files = []
-    with plt.style.context(spstyle.get_style('nature-reviews')):
-        for idx in tqdm(range(trace_set.size)):
-            fig = plt.figure(figsize=(2, 0.7))
-            ax = fig.add_axes([0.2, 0.17, 0.68, 0.7])
-            ax.plot(trace_set.traces[idx].acceptor, linewidth=0.1)
-            ax.plot(trace_set.traces[idx].donor, linewidth=0.1)
-            ax.set_xticks([])
-            ax.set_yticks([])
-            image_file = f'/tmp/trace_{idx}.png'
-            image_files.append(image_file)
-            fig.savefig(image_file, dpi=200, pad_inches=0, bbox_inches='tight', transparent=True)
+    for idx in tqdm(range(trace_set.size)):
+        fig = plt.figure(figsize=(2, 0.7))
+        ax = fig.add_axes([0.2, 0.17, 0.68, 0.7])
+        ax.plot(trace_set.traces[idx].acceptor, linewidth=0.1)
+        ax.plot(trace_set.traces[idx].donor, linewidth=0.1)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        image_file = f'/tmp/trace_{idx}.png'
+        image_files.append(image_file)
+        fig.savefig(image_file, dpi=200, pad_inches=0, bbox_inches='tight', transparent=True)
             plt.close()
 
     
