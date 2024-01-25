@@ -74,7 +74,7 @@ def generate_projector_data(log_dir, embedding, trace_set, plot_label, sprite=Fa
     np.savetxt(log_dir + 'tensor.tsv', embedding, delimiter='\t')
 
 
-def generate_tensor_and_metadata(trace_sets, start_frame, output_dir, encoder, max_size=4000):
+def generate_tensor_and_metadata(trace_sets, start_frame, output_dir, encoder, max_frame=2000, max_traces=4000):
     """Generates the files for embedding projector."""
 
     embeddings = []
@@ -88,10 +88,10 @@ def generate_tensor_and_metadata(trace_sets, start_frame, output_dir, encoder, m
     for trace_set in trace_sets:
         trim_size = len(trace_set.time) // 1000 * 1000
         trace_set.trim(trim_size)
-        trace_set.trim(2000, start_frame=start_frame)
+        trace_set.trim(max_frame, start_frame=start_frame)
         trace_set.broadcast_data_to_traces()
         print(trace_set.size)
-        if count + trace_set.size > max_size:
+        if count + trace_set.size > max_traces:
             break
         else:
             count += trace_set.size
