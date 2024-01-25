@@ -28,7 +28,7 @@ def generate_sprite_plot(log_dir, trace_set):
         image_file = f'/tmp/trace_{idx}.png'
         image_files.append(image_file)
         fig.savefig(image_file, dpi=200, pad_inches=0, bbox_inches='tight', transparent=True)
-            plt.close()
+        plt.close()
 
     
     images = []
