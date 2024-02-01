@@ -70,6 +70,16 @@
       "dataCitation": "Widom, J. R. et al. Ligand modulates cross-coupling between riboswitch folding and transcriptional pausing. Mol. Cell 72, 541–552 (2018). e6."
     },
     {
+    "tensorName": "SiM-KARTS",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simkarts/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simkarts/metadata.tsv",
+      "dataCitation": "To be added"
+    },
+    {
       "tensorName": "Simulaiton - Noise Level",
       "tensorShape": [
         -1,
