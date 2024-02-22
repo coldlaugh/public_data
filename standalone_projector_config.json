@@ -31,6 +31,16 @@
       "dataCitation": "Suddala, K. C., Wang, J., Hou, Q. & Walter, N. G. Mg2+ Shifts Ligand-Mediated Folding of a Riboswitch from Induced-Fit to Conformational Selection. J. Am. Chem. Soc. 137, 14075–14083 (2015)."
     },
     {
+      "tensorName": "PreQ 1 (Visualization)",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/preQ_1_viz/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/preQ_1_viz/metadata.tsv",
+      "dataCitation": "Suddala, K. C., Wang, J., Hou, Q. & Walter, N. G. Mg2+ Shifts Ligand-Mediated Folding of a Riboswitch from Induced-Fit to Conformational Selection. J. Am. Chem. Soc. 137, 14075–14083 (2015)."
+    },
+    {
       "tensorName": "DNA Walker",
       "tensorShape": [
         -1,
@@ -38,6 +48,16 @@
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_walker/tensor.bytes",
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_walker/metadata.tsv",
+      "dataCitation": "Li, J. et al. Exploring the speed limit of toehold exchange with a cartwheeling DNA acrobat. Nat. Nanotechnol. 13, 723–729 (2018)."
+    },
+    {
+      "tensorName": "DNA Walker (Visualization)",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_walker_viz/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_walker_viz/metadata.tsv",
       "dataCitation": "Li, J. et al. Exploring the speed limit of toehold exchange with a cartwheeling DNA acrobat. Nat. Nanotechnol. 13, 723–729 (2018)."
     },
     {
@@ -51,6 +71,16 @@
       "dataCitation": "Suddala, K. C. et al. Local-to-global signal transduction at the core of a Mn2+ sensing riboswitch. Nat. Commun. 10, 4304 (2019)."
     },
     {
+      "tensorName": "Riboswitch (Visualization)",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/riboswitch_viz/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/riboswitch_viz/metadata.tsv",
+      "dataCitation": "Suddala, K. C. et al. Local-to-global signal transduction at the core of a Mn2+ sensing riboswitch. Nat. Commun. 10, 4304 (2019)."
+    },
+    {
       "tensorName": "Kinetic Fingerprinting",
       "tensorShape": [
         -1,
@@ -58,6 +88,16 @@
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simreps/tensor.bytes",
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simreps/metadata.tsv",
+      "dataCitation": "Hayward, S. L. et al. Ultraspecific and amplification-free quantification of mutant DNA by single-molecule kinetic fingerprinting. J. Am. Chem. Soc. 140, 11755–11762 (2018)."
+    },
+    {
+      "tensorName": "Kinetic Fingerprinting (Visualization)",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simreps_viz/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simreps_viz/metadata.tsv",
       "dataCitation": "Hayward, S. L. et al. Ultraspecific and amplification-free quantification of mutant DNA by single-molecule kinetic fingerprinting. J. Am. Chem. Soc. 140, 11755–11762 (2018)."
     },
     {
@@ -90,13 +130,30 @@
       "dataCitation": "To be added"
     },
     {
-      "tensorName": "Simulaiton - Noise Level",
+      "tensorName": "Simulational - FRET STATE Count",
       "tensorShape": [
         -1,
         96
       ],
-      "tensorPath": "https://storage.googleapis.com/fret_traces/noise_level_control_expt/tensor.bytes",
-      "metadataPath": "https://storage.googleapis.com/fret_traces/noise_level_control_expt/metadata.tsv"
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/metadata.tsv",
+    {
+      "tensorName": "Simulational - Inverse Kinetic Kate Constant",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/inverse_kinetic_constant/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/inverse_kinetic_constant/metadata.tsv",
+    },
+    {
+      "tensorName": "Simulational - Multistep Photobleaching",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/multistep_photobleaching/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/multistep_photobleaching/metadata.tsv",
     }
   ],
   "modelCheckpointPath": "Demo datasets"
