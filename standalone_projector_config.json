@@ -137,7 +137,7 @@
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/tensor.bytes",
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/metadata.tsv"
-    }
+    },
     {
       "tensorName": "Simulational - Inverse Kinetic Kate Constant",
       "tensorShape": [
