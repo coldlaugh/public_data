@@ -136,7 +136,8 @@
         96
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/tensor.bytes",
-      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/metadata.tsv",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/fret_count/metadata.tsv"
+    }
     {
       "tensorName": "Simulational - Inverse Kinetic Kate Constant",
       "tensorShape": [
@@ -144,7 +145,7 @@
         96
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/inverse_kinetic_constant/tensor.bytes",
-      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/inverse_kinetic_constant/metadata.tsv",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/inverse_kinetic_constant/metadata.tsv"
     },
     {
       "tensorName": "Simulational - Multistep Photobleaching",
@@ -153,7 +154,7 @@
         96
       ],
       "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/multistep_photobleaching/tensor.bytes",
-      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/multistep_photobleaching/metadata.tsv",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/simulational/multistep_photobleaching/metadata.tsv"
     }
   ],
   "modelCheckpointPath": "Demo datasets"
