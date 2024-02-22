@@ -11,6 +11,16 @@
       "dataCitation": "Fu, J. et al. Multi-enzyme complexes on DNA scaffolds capable of substrate channelling with an artificial swinging arm. Nat. Nanotechnol. 9, 531–536 (2014)."
     },
     {
+      "tensorName": "DNA Swinging Arm (Visualization)",
+      "tensorShape": [
+        -1,
+        96
+      ],
+      "tensorPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_swinging_arm_viz/tensor.bytes",
+      "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/dna_swinging_arm_viz/metadata.tsv",
+      "dataCitation": "Fu, J. et al. Multi-enzyme complexes on DNA scaffolds capable of substrate channelling with an artificial swinging arm. Nat. Nanotechnol. 9, 531–536 (2014)."
+    },
+    {
       "tensorName": "PreQ 1",
       "tensorShape": [
         -1,
