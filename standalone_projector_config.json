@@ -119,6 +119,7 @@
       "metadataPath": "https://raw.githack.com/coldlaugh/metasim-datasets/main/transcriptional_complex/metadata.tsv",
       "dataCitation": "Widom, J. R. et al. Ligand modulates cross-coupling between riboswitch folding and transcriptional pausing. Mol. Cell 72, 541–552 (2018). e6."
     },
+    {
     "tensorName": "Transcriptional Complex (Visualization)",
       "tensorShape": [
         -1,
