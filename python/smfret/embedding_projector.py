@@ -84,7 +84,7 @@ def generate_tensor_and_metadata(trace_sets, start_frame, output_dir, encoder, m
     
     count = 0
     for trace_set in trace_sets:
-        trim_size = len(trace_set.time) // 1000 * 1000
+        trim_size = len(trace_set.time) // 100 * 100
         trace_set.trim(trim_size)
         trace_set.trim(max_frame, start_frame=start_frame)
         trace_set.broadcast_data_to_traces()
