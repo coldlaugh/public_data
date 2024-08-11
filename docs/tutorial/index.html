@@ -38,23 +38,52 @@
     <main>
         <section id="introduction">
             <h2>Introduction</h2>
-            <p>A brief overview of the tutorial's topic.</p>
+            <p>The META-SiM Projector is a tool that allows you to visualize and analyze single molecule fluorescence microscopy data in a new way. By projecting embeddings of single molecule time traces onto a 2D plan or 3D space, you can easily identify
+                patterns and trends that would be difficult to see in the raw data.</p>
         </section>
 
-        <section id="step-one">
-            <h2>Step 1: Do This</h2>
-            <p>Detailed instructions for step one.</p>
-            <img src="image1.jpg" alt="Image illustrating step one">
+        <section id="prerequisites">
+            <h2>Prerequisites</h2>
+            <p>Before you begin, you will need the following:</p>
+            <ul>
+                <li>Single molecule fluorescence microscopy data in the appropriate format, e.g., *.dat, *.traces etc. If you don't have data, you can use the datasets we already imported into the META-SiM Projector for demo purpose.</li>
+                <li>A Google account, since we will use Google Colab for running the META-SiM model on your data.</li>
+            </ul>
         </section>
 
-        <section id="conclusion">
-            <h2>Conclusion</h2>
-            <p>Summary of key points.</p>
+        <section id="step1">
+            <h2>Step 1: Import your data:</h2>
+            <p>This step can be skipped if you use the datasets that we have re-loaded into the projector for demo purpose. To use your own data, follow the steps below:</p>
+            <ul>
+                
+                <li><img src="data_panel.png"/>Under the "DATA" panel, click on the "Load" button. A guide for data processing and importing will pop up.<img src="import_popup.png"/></li>
+                
+                <li>Click on the "Open" button for generating embedding and metadata. A Google Colab will open and walk you through this process. At the end the Google Colab, you will be able to download a "tensor.tsv" file and a "metadata.tsv" file, which contain the generated embeddings and metadata</li>
+                <li>Click on the "Choose file" buttons for "Step 2" and "Step 3" and select the "tensor.tsv" file and "metadata.tsv" file that you just downloaded. A progress bar will pop up, indicating that the projector is optimizing the UMAP projection.<img src="progress_bar.png"/></li>
+            </ul>
         </section>
+        
+        <section id="step2">
+            <h2>Step 2: Choose a projection method:</h2>
+            <ul>
+                <li>The projector offers several different projection methods such as UMAP and PCA.</li>
+                <li><img src="projection_panel.png"/>Select the projection method that best suits your data.</li>
+            </ul>
+        </section>
+        
+        <section id="step3">
+            <h2>View the results:</h2>
+            <ul>
+                <li>Once your data has been projected, you will see a 2D or 3D plot of the data in the center of your screen.</li>
+                <li>Each point in the plot represents a single molecule time trace.</li>
+                <li>The color of each point indicates the value of a particular property. You can select the property for coloring in the "color by" dropdown list under the "DATA" section. </li>
+            </ul>
+        </section>
+        
     </main>
 
     <footer>
-        <p>&copy; Your Name/Company</p>
+        <p>&copy; simol-projector.org</p>
     </footer>
 </body>
 
