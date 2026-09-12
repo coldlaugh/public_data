@@ -1,8 +1,9 @@
 import {SPT_API_ORIGIN} from "./deployment-config.js";
 import {createCloudApi,cloudPollDelay} from "./cloud-client.js";
-import {renderAnswer} from './answer-renderer.js';
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js';
 import {ProjectorClient, readEmbeddings, questionForDisplay} from './projector-client.js';
 import {createColoring} from './coloring.js';
+const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
 let files = [], active = null, latest = null, points = [], selected = new Set(), polygon = [], drawing = false;
@@ -52,7 +53,7 @@ function showJourney(){
   if($('upload-box').parentElement!==destination)destination.append($('upload-box'));
   if(!talking){panels(true,true);$('send-hint').textContent='Upload files, describe your format, or ask to use demo data.';}
 }
-const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onExpiry:id=>{
+const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(sent,total)=>{$('status').textContent='Uploading '+Math.round(sent/Math.max(1,total)*100)+'%…';},onExpiry:id=>{
   const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));renderHistory();
 }});
 async function api(path,data,auth=active){
@@ -100,7 +101,12 @@ function setFiles(value) {
   $('dataset-count').textContent=files.length?`${files.length} file${files.length===1?'':'s'}`:'Add trajectories';
   $('data-panel').open=!files.length;
   $('file-list').replaceChildren(...files.map(file => {
-    const chip = document.createElement('span'); chip.className = 'file-chip'; chip.textContent = file.name; return chip;
+    const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
+    if(!sending&&(!active||!latest?.files?.length)){
+      const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
+      remove.onclick=()=>{if(sending||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining);};chip.append(remove);
+    }
+    return chip;
   }));
   preview();showJourney();
 }
@@ -206,12 +212,16 @@ $('projection').onchange=()=>setProjection($('projection').value).catch(error);
 $('files').addEventListener('change', async event => {
   try {
 
-    const chosen = [...event.target.files];
-    if (!chosen.length || chosen.length > 12 || chosen.reduce((n,f) => n + f.size, 0) > 12 * 1024 * 1024)
-      throw new Error('Choose 1–12 files, up to 12 MB in total.');
-    const added=await Promise.all(chosen.map(async f => ({name: f.name, data: encode(new Uint8Array(await f.arrayBuffer()))})));
-    if(active&&files.length)throw new Error('Start a new analysis for a different dataset.');
-    if(active)pendingFiles=added;setFiles(added);
+    const chosen = [...event.target.files];event.target.value='';
+    if(!chosen.length)return;
+    if(sending||active&&latest?.files?.length)throw new Error('Start a new analysis for a different dataset.');
+    const names=new Set(files.map(f=>f.name.toLowerCase()));
+    for(const f of chosen){if(names.has(f.name.toLowerCase()))throw new Error('A file named '+f.name+' is already selected. Remove it first to replace it.');names.add(f.name.toLowerCase());}
+    const selectedBytes=files.reduce((n,f)=>n+(f.bytes??Math.floor(f.data.length*3/4)-(f.data.endsWith('==')?2:f.data.endsWith('=')?1:0)),0);
+    if(files.length+chosen.length>12||selectedBytes+chosen.reduce((n,f)=>n+f.size,0)>MAX_UPLOAD_BYTES)throw new Error('Choose up to 12 files, totaling at most '+MAX_UPLOAD_BYTES/1024/1024+' MiB.');
+    const added=[];
+    for(const f of chosen){const bytes=new Uint8Array(await f.arrayBuffer());const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error('Choose UTF-8 text files.');added.push({name:f.name,bytes:f.size,data:encode(bytes)});}
+    const combined=[...files,...added];if(active)pendingFiles=combined;setFiles(combined);
     error(null);
   } catch (err) { error(err); }
 });
@@ -383,6 +393,8 @@ function preview(keepSelection=false) {
   points=[];if(!keepSelection)selected.clear();
   for (const file of files) {
     if (!/\.(csv|tsv)$/i.test(file.name)) continue;
+    // Large datasets are preprocessed by the agent; avoid splitting millions of rows on the UI thread.
+    if ((file.bytes??file.data.length*3/4)>16*1024*1024) continue;
     const lines=decode(file.data).trim().split(/\r?\n/); const sep=file.name.endsWith('.tsv')?'\t':',';
     const columns=lines[0].replace(/^\uFEFF/,'').split(sep).map(s=>s.trim().replace(/^"|"$/g,''));
     const ix=columns.indexOf('x_um'),iy=columns.indexOf('y_um'),it=columns.indexOf('track_id');
@@ -445,11 +457,7 @@ if(document.modelContext?.registerTool){
   register({name:'select_spt_tracks',description:'Select file-qualified track IDs (filename:track_id) in the visible trajectory preview.',inputSchema:{type:'object',properties:{ids:{type:'array',items:{type:'string'}}},required:['ids'],additionalProperties:false},execute:input=>{if(!input||!Array.isArray(input.ids)||input.ids.some(id=>typeof id!=='string'||!points.some(t=>t.key===id)&&!embedding?.points.some(p=>p.id===id)))throw new Error('Unknown track ID');selected=new Set(input.ids);draw();return {selectedTrackIds:[...selected]};}});
   window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
 }
-function resolveArtifact(href,turn=Infinity){
-  if(/^[a-z][a-z0-9+.-]*:/i.test(href)||href.startsWith('//'))return null;
-  const artifactLookup=new Map((latest?.artifacts||[]).filter(f=>f.turn<=turn).map(f=>[f.name,f]));
-  try {const path=decodeURIComponent(href).replace(/^\.\//,'').replace(/^outputs\//,'');return artifactLookup.get(path)||artifactLookup.get(path.replaceAll('/','__'));}catch{return null;}
-}
+function resolveArtifact(href,turn=Infinity){return resolveArtifactLink(href,latest?.artifacts||[],turn);}
 function openArtifact(file){
   artifactUrls.forEach(url=>URL.revokeObjectURL(url));artifactUrls=[];
   const bytes=Uint8Array.from(atob(file.data),c=>c.charCodeAt(0)),ext=file.name.split('.').at(-1).toLowerCase();
