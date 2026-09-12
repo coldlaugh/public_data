@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css"><link rel="stylesheet" href="./style.css">
+<script src="./app.js" type="module"></script>
+</head>
+<body>
+<header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
+<aside id="session-sidebar" aria-label="Conversations" hidden><div class="sidebar-head"><h2>Conversations</h2><button id="close-sidebar" class="quiet" aria-label="Close conversation sidebar">×</button></div><button id="new">New analysis</button><label for="history" class="history-label">Recent analyses</label><select id="history" aria-label="Recent analyses"><option value="">Choose an analysis</option></select><div id="conversation-list"></div></aside>
+<main class="onboarding">
+<section class="explorer" id="explorer" aria-label="Dataset explorer">
+<div class="panel-head"><h1>Projector</h1><button id="hide-data" class="quiet" aria-label="Hide dataset panel">Hide</button></div>
+<div id="data-dock"><details id="data-panel" class="workspace-drawer" open><summary>Dataset <span id="dataset-count">Add trajectories</span></summary><div id="upload-box" class="upload-box"><label for="files" class="upload-label">Upload trajectory files <span>Text data · any extension, including .spt · up to 12 MB</span></label><input id="files" type="file" multiple><button id="sample" class="quiet">Use demo data</button><div id="file-list" class="file-list" aria-live="polite"></div></div></details></div>
+<div class="plot-wrap">
+<canvas id="plot" aria-label="Spatial plot of uploaded trajectories"></canvas><iframe id="legacy-projector" title="Original SPT projector" hidden></iframe>
+<div class="stage-controls"><details id="view-panel"><summary>View &amp; parameters</summary><div class="projection-controls"><label for="projection">Projection</label><select id="projection"><option value="raw">Raw trajectories</option><option value="pca" disabled>PCA</option><option value="umap" disabled>UMAP</option><option value="tsne" disabled>t-SNE</option></select><span id="embedding-info">Encoder projections appear when available.</span><button id="projection-settings" hidden>Projection parameters</button></div></details><button id="clear-selection" class="quiet">Clear selection</button></div>
+<div id="plot-empty">Projection will appear here when the data are ready.</div>
+<div id="color-legend" aria-label="Trajectory color legend" hidden></div>
+<div class="stage-status"><span id="plot-title">Trajectory preview</span><span id="plot-meta">No dataset loaded</span><span id="selection">All trajectories</span></div>
+<div id="projection-progress" role="status" hidden><span class="loading-ring"></span><strong>Preparing your dataset</strong><span id="projection-progress-text">The agent is checking your data. The projection will appear here when ready.</span></div>
+<div id="trajectory-card" hidden><div class="trajectory-card-head"><strong id="trajectory-title"></strong><button id="close-trajectory" class="quiet" aria-label="Close trajectory preview">×</button></div><canvas id="trajectory-animation" aria-label="Animated selected trajectory"></canvas><div><span id="trajectory-frame"></span><button id="trajectory-play">Pause</button></div></div>
+</div>
+</section>
+<section class="conversation" id="conversation" aria-label="Analysis conversation">
+<div class="panel-head"><h1>Analysis</h1><div class="head-actions"><button id="show-data" class="quiet" hidden>Show data</button><button id="hide-chat" class="quiet">Hide</button></div></div>
+<div class="status-bar"><span id="status">Ready when you are</span><button id="cancel" class="quiet" hidden>Stop analysis</button></div>
+<div id="welcome" class="welcome"><h1>What would you like to learn<br>from your trajectories?</h1><p>Upload your data and describe your experiment, or ask to try our demo dataset.</p><div id="welcome-upload"></div></div>
+<div id="messages" class="messages" role="log" aria-label="Conversation and analysis steps" aria-live="off"></div>
+<button id="latest-message" class="quiet" hidden>Jump to latest response ↓</button>
+<details id="results-panel" class="workspace-drawer results-drawer"><summary>Results &amp; figures <span id="result-count">No outputs yet</span></summary><div id="downloads"><p class="muted">Analysis outputs will appear here.</p></div></details>
+<details id="connection-panel"><summary>Connection history</summary><div id="system-activity" class="muted"></div></details>
+<form id="composer"><label for="question">Your question or follow-up</label><textarea id="question" rows="3" placeholder="Describe your data, ask a question, or say ‘use demo data’…" required></textarea><div class="composer-bottom"><span id="send-hint">No fixed column format required. Tell us the units and time between frames.</span><button type="submit" id="send">Send <span>↗</span></button></div></form>
+<p class="muted">Sessions expire seven days after creation. Download any results you want to keep.</p>
+<p id="error" role="alert"></p>
+</section>
+<button id="show-chat" class="floating" hidden>Show analysis</button>
+</main>
+<dialog id="artifact-dialog" aria-labelledby="artifact-title"><div class="artifact-dialog-head"><h2 id="artifact-title"></h2><div><a id="artifact-download" download>Download</a><button id="artifact-close" class="quiet" aria-label="Close result preview">×</button></div></div><div id="artifact-preview"></div></dialog>
+</body></html>
