@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=1ef62b048b50662b";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=1ef62b048b50662b";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=1ef62b048b50662b';
-import {artifactVersion} from './artifact-links.js?v=1ef62b048b50662b';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=1ef62b048b50662b';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=1ef62b048b50662b';
-import {createColoring} from './coloring.js?v=1ef62b048b50662b';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=08626d9423727d75";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=08626d9423727d75";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=08626d9423727d75';
+import {artifactVersion} from './artifact-links.js?v=08626d9423727d75';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=08626d9423727d75';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=08626d9423727d75';
+import {createColoring} from './coloring.js?v=08626d9423727d75';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -127,13 +127,16 @@ function encode(bytes) {
   for (let i = 0; i < bytes.length; i += 8192) text += String.fromCharCode(...bytes.subarray(i, i + 8192));
   return btoa(text);
 }
-function setFiles(value) {
+function setFiles(value, preserveSelection=false) {
+  const previousSelection=preserveSelection?[...selected]:[],previewWasOpen=!$('trajectory-card').hidden;
   files = value;
   if(!active&&!sending)started=files.length>0;
   $('dataset-count').textContent=files.length?`${files.length} file${files.length===1?'':'s'}`:'Add trajectories';
   $('data-panel').open=!files.length;
   renderFileControls();
-  preview();showJourney();showTrajectory([...selected]);
+  preview();
+  if(preserveSelection){const available=new Set(points.map(track=>track.key));selected=new Set(previousSelection.filter(id=>available.has(id)));draw();syncTrackChoice();}
+  showJourney();if(!preserveSelection||previewWasOpen||!selected.size)showTrajectory([...selected]);
 }
 function renderFileControls() {
   const committed=!!(active&&latest?.files?.length);
@@ -146,7 +149,7 @@ function renderFileControls() {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
     if(!sending&&(!active||!latest?.files?.length)){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining);error(null);};chip.append(remove);
+      remove.onclick=()=>{if(sending||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining,true);error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
     }
     return chip;
   }));
@@ -190,7 +193,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=1ef62b048b50662b';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=08626d9423727d75';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -243,7 +246,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=1ef62b048b50662b', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=08626d9423727d75', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -275,7 +278,7 @@ $('files').addEventListener('change', async event => {
     if(files.length+chosen.length>12||selectedBytes+chosen.reduce((n,f)=>n+f.size,0)>MAX_UPLOAD_BYTES)throw new Error('Choose up to 12 files, totaling at most '+MAX_UPLOAD_BYTES/1024/1024+' MiB.');
     const added=[];
     for(const f of chosen){const bytes=new Uint8Array(await f.arrayBuffer());const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error('Choose UTF-8 text files.');added.push({name:f.name,bytes:f.size,data:encode(bytes)});}
-    const combined=[...files,...added];if(active)pendingFiles=combined;setFiles(combined);
+    const combined=[...files,...added];if(active)pendingFiles=combined;setFiles(combined,true);$('data-panel').querySelector('summary').focus();
     error(null);
   } catch (err) { error(err); }
 });
