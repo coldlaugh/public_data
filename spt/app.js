@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d612f957f91f132e";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d612f957f91f132e";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d612f957f91f132e';
-import {artifactVersion} from './artifact-links.js?v=d612f957f91f132e';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d612f957f91f132e';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=d612f957f91f132e';
-import {createColoring} from './coloring.js?v=d612f957f91f132e';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=0e6be79643473b63";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=0e6be79643473b63";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=0e6be79643473b63';
+import {artifactVersion} from './artifact-links.js?v=0e6be79643473b63';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=0e6be79643473b63';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=0e6be79643473b63';
+import {createColoring} from './coloring.js?v=0e6be79643473b63';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -16,6 +16,7 @@ let finishProjection = null;
 let legacyApi=null, legacyVersion=null, legacyMode=false, projectionGeneration=0;
 let pendingFollowup = null;
 let pointColoring=null,colorVersion='null';
+let projectionViewRevision=null,projectionViewIds=null,viewSelectionError=null;
 let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomUUID() + crypto.randomUUID();
 let sampleFile=null, sampleContext='';
 let connectionError=null;
@@ -66,7 +67,7 @@ async function api(path,data,auth=active){
   return result;
 }
 
-function error(err) { $('error').textContent = err?.message || '';connectionError=null; }
+function error(err) { $('error').textContent = err?.message || '';connectionError=null;viewSelectionError=err?.filtered?err.message:null; }
 function projectorState() {
   const state=legacyMode&&legacyApi?legacyApi.state():{projection:$('projection').value,projectionReady:projectionWorker===null,
     availableProjections:[...$('projection').options].filter(o=>!o.disabled).map(o=>o.value),
@@ -82,7 +83,19 @@ function setColoring(spec){
   const items=document.createElement('div');items.className='color-entries';
   for(const entry of pointColoring.entries){const item=document.createElement('span'),swatch=document.createElement('i');swatch.style.background=entry.color;item.append(swatch,document.createTextNode(entry.label));items.append(item);}
   if(spec.kind==='numeric'){const ramp=document.createElement('div');ramp.className='color-ramp';ramp.style.background='linear-gradient(90deg,'+pointColoring.ramp.join(',')+')';ramp.title=pointColoring.spec.palette+' · higher values are lighter';legend.append(ramp);}
-  legend.append(items);const note=document.createElement('small');note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');legend.append(note);
+  legend.append(items);legend.append(document.createElement('small'));updateLegendScope();
+}
+function filteredProjectionIds(){
+  if(!legacyMode||!legacyApi?.isFiltered?.()){projectionViewRevision=null;projectionViewIds=null;return null;}
+  const revision=legacyApi.viewRevision();
+  if(revision!==projectionViewRevision){projectionViewRevision=revision;projectionViewIds=new Set(legacyApi.visibleTrackIds());}
+  return projectionViewIds;
+}
+function updateLegendScope(){
+  const note=$('color-legend').querySelector('small');if(!note||!pointColoring)return;
+  const visible=filteredProjectionIds();
+  if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajectories in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
+  else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
 }
 function selectTracks(ids) {
   const knownIds=new Set([...points.map(t=>t.key),...(embedding?.points||[]).map(p=>p.id)]);
@@ -90,7 +103,7 @@ function selectTracks(ids) {
     const failure=new Error('Unknown track ID');failure.code='unknown_track';throw failure;
   }
   if(legacyMode&&legacyApi){
-    try{return legacyApi.select(ids);}catch{const failure=new Error('Unknown or filtered track ID');failure.code='unknown_track';throw failure;}
+    try{return legacyApi.select(ids);}catch{const failure=new Error('This trajectory is outside the current projection view. Restore all trajectories in View & parameters to inspect it.');failure.code='unknown_track';failure.filtered=true;throw failure;}
   }
   selected=new Set(ids);draw();showTrajectory(ids);syncTrackChoice();return {selectedTrackIds:[...selected]};
 }
@@ -156,7 +169,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d612f957f91f132e';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=0e6be79643473b63';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -174,7 +187,7 @@ async function setProjection(method) {
       updatePlotHelp(snapshot.projection);
       $('selection').textContent=selected.size?selected.size+' selected':'All trajectories';
       $('plot-meta').textContent=snapshot.pointCount+' trajectories';
-      showTrajectory(snapshot.selectedTrackIds);syncTrackChoice();
+      showTrajectory(snapshot.selectedTrackIds);updateTrackFinder(true);updateLegendScope();
     };
     if(legacyVersion!==embeddingId){
       const version=embeddingId, usedApi=legacyApi;
@@ -188,7 +201,7 @@ async function setProjection(method) {
     const result=await legacyApi.project(method);
     if(request!==projectionGeneration||result.cancelled)return {cancelled:true};
     legacyApi.color(pointColoring?[...pointColoring.colors]:null);
-    $('projection').value=method;updatePlotHelp(method);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;
+    $('projection').value=method;updatePlotHelp(method);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;updateTrackFinder();updateLegendScope();
     return result;
   }catch(failure){
     if(request!==projectionGeneration)return {cancelled:true};
@@ -205,7 +218,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d612f957f91f132e', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=0e6be79643473b63', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -439,13 +452,20 @@ function preview(keepSelection=false) {
   $('plot-empty').hidden=points.length>0;
   $('plot-empty').textContent=files.length?'No automatic spatial preview for this file format. The agent can still inspect and preprocess it.':'Upload trajectories to inspect their paths. You can ask a question without selecting points.';
   $('plot-meta').textContent=points.length?`${points.length} trajectories · x/y in µm`:'No spatial preview';
-  updateTrackFinder();draw();
+  updateTrackFinder();updateLegendScope();draw();
 }
-let finderTracks=[];
-function updateTrackFinder(){
+let finderTracks=[],finderScopeIds;
+function updateTrackFinder(scopeOnly=false){
+  const visible=filteredProjectionIds();
+  if(!visible&&viewSelectionError&&$('error').textContent===viewSelectionError)error(null);
+  if(scopeOnly&&visible===finderScopeIds){syncTrackChoice();return;}
+  finderScopeIds=visible;
   const byId=new Map(points.map(track=>[track.key,track]));
   for(const point of embedding?.points||[])if(!byId.has(point.id))byId.set(point.id,{key:point.id,id:point.trackId,file:point.file});
   finderTracks=[...byId.values()].sort((a,b)=>a.key.localeCompare(b.key));
+  if(visible)finderTracks=finderTracks.filter(track=>visible.has(track.key));
+  $('restore-tracks').hidden=$('view-scope').hidden=!visible;
+  $('view-scope').textContent=visible?visible.size+' of '+byId.size+' trajectories shown. Hidden trajectories remain in your dataset.':'';
   $('track-finder').hidden=!finderTracks.length;
   if(!finderTracks.length)$('track-search').value='';
   renderTrackChoices();
@@ -460,6 +480,7 @@ function renderTrackChoices(){
 function syncTrackChoice(){ $('track-choice').value=selected.size===1?[...selected][0]:'';$('track-inspect').disabled=!$('track-choice').value; }
 $('track-search').oninput=renderTrackChoices;
 $('track-choice').onchange=()=>{$('track-inspect').disabled=!$('track-choice').value;};
+$('restore-tracks').onclick=()=>{try{legacyApi.restoreAll();updateTrackFinder();updateLegendScope();error(null);$('track-search').focus();}catch(failure){error(failure);}};
 $('track-inspect').onclick=()=>{try{selectTracks([$('track-choice').value]);$('view-panel').open=false;$('close-trajectory').focus();}catch(failure){syncTrackChoice();error(failure);}};
 $('view-panel').onkeydown=event=>{if(event.key==='Escape'){$('view-panel').open=false;$('view-panel').querySelector('summary').focus();}};
 const canvas=$('plot');let projected=[];
@@ -485,7 +506,7 @@ function draw(){
     c.strokeStyle=selected.size?(selected.has(t.key)?'#d6584f':'#9ca9be'):(pointColoring?(pointColoring.colors.get(t.key)||'#b7bec8'):['#547cce','#388c94','#9671b2','#b18745'][i%4]);
     c.globalAlpha=selected.size&&!selected.has(t.key)?.25:.8;c.lineWidth=selected.has(t.key)?1.6:.9;c.beginPath();
     path.forEach(([x,y],j)=>j?c.lineTo(x,y):c.moveTo(x,y));c.stroke();
-    if(projectedEmbedding){c.fillStyle=c.strokeStyle;c.beginPath();c.arc(path[0][0],path[0][1],selected.has(t.key)?4:3,0,Math.PI*2);c.fill();}
+    if(projectedEmbedding||t.path.length>0&&t.path.every(([x,y])=>x===t.path[0][0]&&y===t.path[0][1])){c.fillStyle=c.strokeStyle;c.beginPath();c.arc(path[0][0],path[0][1],selected.has(t.key)?4:3,0,Math.PI*2);c.fill();}
     return {...t,path};
   });c.globalAlpha=1;
   if(polygon.length){c.beginPath();polygon.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle='#4779dc';c.lineWidth=1.5;c.stroke();}
