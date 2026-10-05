@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=0e6be79643473b63";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=0e6be79643473b63";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=0e6be79643473b63';
-import {artifactVersion} from './artifact-links.js?v=0e6be79643473b63';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=0e6be79643473b63';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=0e6be79643473b63';
-import {createColoring} from './coloring.js?v=0e6be79643473b63';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=e27366c5751231f5";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=e27366c5751231f5";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=e27366c5751231f5';
+import {artifactVersion} from './artifact-links.js?v=e27366c5751231f5';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=e27366c5751231f5';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=e27366c5751231f5';
+import {createColoring} from './coloring.js?v=e27366c5751231f5';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -169,7 +169,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=0e6be79643473b63';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=e27366c5751231f5';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -218,7 +218,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=0e6be79643473b63', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=e27366c5751231f5', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -572,7 +572,7 @@ function showTrajectory(ids){
   if(selectedCardId===ids[0]&&!$('trajectory-card').hidden)return;selectedCardId=ids[0];trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
   $('trajectory-title').textContent=ids[0];$('trajectory-card').hidden=false;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
-  $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+' observations · x/y in µm'+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
+  $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
   $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=!available;
   clearTimeout(trajectoryTimer);if(available)animateTrajectory();syncTrackChoice();
 }
