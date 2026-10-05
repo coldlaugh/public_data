@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=a2783ae33c242237";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=a2783ae33c242237";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=a2783ae33c242237';
-import {artifactVersion} from './artifact-links.js?v=a2783ae33c242237';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=a2783ae33c242237';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=a2783ae33c242237';
-import {createColoring} from './coloring.js?v=a2783ae33c242237';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=ffdbae62a29a5977";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=ffdbae62a29a5977";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=ffdbae62a29a5977';
+import {artifactVersion} from './artifact-links.js?v=ffdbae62a29a5977';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=ffdbae62a29a5977';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=ffdbae62a29a5977';
+import {createColoring} from './coloring.js?v=ffdbae62a29a5977';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -284,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=a2783ae33c242237';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=ffdbae62a29a5977';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=a2783ae33c242237', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=ffdbae62a29a5977', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -679,7 +679,16 @@ canvas.onpointercancel=()=>{drawing=false;polygon=[];draw();};
 $('clear-selection').onclick=()=>{selectTracks([]);showTrajectory([]);};
 $('projection-settings').onclick=()=>{$('view-panel').open=false;legacyApi?.openParameters();};
 new ResizeObserver(draw).observe(canvas);
-function panels(data,chat){$('explorer').hidden=!data;$('conversation').hidden=!chat;$('show-data').hidden=data;$('show-chat').hidden=chat;main.classList.toggle('data-hidden',!data);main.classList.toggle('chat-hidden',!chat);requestAnimationFrame(draw);}
+let hiddenConversationScroll=0,hiddenConversationWorkspace=null;
+function panels(data,chat){
+  const wasChatHidden=$('conversation').hidden;
+  if(!chat&&!wasChatHidden){hiddenConversationScroll=$('messages').scrollTop;hiddenConversationWorkspace=workspaceKey();}
+  const restoreScroll=chat&&wasChatHidden&&hiddenConversationWorkspace===workspaceKey()?hiddenConversationScroll:null;
+  const restoreWorkspace=workspaceKey();
+  $('explorer').hidden=!data;$('conversation').hidden=!chat;$('show-data').hidden=data;$('show-chat').hidden=chat;main.classList.toggle('data-hidden',!data);main.classList.toggle('chat-hidden',!chat);
+  if(restoreScroll!==null)$('messages').scrollTop=restoreScroll;
+  requestAnimationFrame(()=>{draw();if(restoreScroll!==null&&!$('conversation').hidden&&workspaceKey()===restoreWorkspace)$('messages').scrollTop=restoreScroll;});
+}
 $('hide-data').onclick=()=>{panels(false,true);$('show-data').focus();};
 $('show-data').onclick=()=>{panels(true,true);$('hide-data').focus();};
 $('hide-chat').onclick=()=>{panels(true,false);$('show-chat').focus();};
