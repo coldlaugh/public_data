@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=8939f33d18ecf555";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8939f33d18ecf555";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8939f33d18ecf555';
-import {artifactVersion} from './artifact-links.js?v=8939f33d18ecf555';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=8939f33d18ecf555';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=8939f33d18ecf555';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8939f33d18ecf555';
-import {createColoring} from './coloring.js?v=8939f33d18ecf555';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=8939f33d18ecf555';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=d13c740076d6c928";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d13c740076d6c928";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d13c740076d6c928';
+import {artifactVersion} from './artifact-links.js?v=d13c740076d6c928';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d13c740076d6c928';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d13c740076d6c928';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d13c740076d6c928';
+import {createColoring} from './coloring.js?v=d13c740076d6c928';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d13c740076d6c928';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -304,7 +304,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8939f33d18ecf555';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d13c740076d6c928';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -378,7 +378,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=8939f33d18ecf555', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=d13c740076d6c928', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
