@@ -139,6 +139,7 @@ function cancelProjection() {
 }
 async function setProjection(method) {
   if(!['raw','pca','umap','tsne'].includes(method))throw new Error('Unknown projection.');
+  updatePlotHelp(method);
   const request=++projectionGeneration;
   legacyApi?.cancel();
   if(method==='raw'){
@@ -167,6 +168,7 @@ async function setProjection(method) {
       if(!legacyMode)return;
       selected=new Set(snapshot.selectedTrackIds);
       $('projection').value=snapshot.projection;
+      updatePlotHelp(snapshot.projection);
       $('selection').textContent=selected.size?selected.size+' selected':'All trajectories';
       $('plot-meta').textContent=snapshot.pointCount+' trajectories';
       showTrajectory(snapshot.selectedTrackIds);
@@ -440,8 +442,11 @@ function preview(keepSelection=false) {
   draw();
 }
 const canvas=$('plot');let projected=[];
+function updatePlotHelp(method=$('projection').value){
+  $('plot-help').textContent=method==='raw'?'Click a trajectory to inspect it; drag a lasso to select several. Selected tracks accompany your next question.':'Each point represents one trajectory’s encoder vector. Projection distances have no spatial units and clusters alone do not establish a motion model. Click a point to inspect its trajectory.';
+}
 function draw(){
-  $('plot-help').textContent=$('projection').value==='raw'?'Click a trajectory to inspect it; drag a lasso to select several. Selected tracks accompany your next question.':'Each point represents one trajectory’s encoder vector. Projection distances have no spatial units and clusters alone do not establish a motion model. Click a point to inspect its trajectory.';
+  updatePlotHelp();
   const box=canvas.getBoundingClientRect();const scale=devicePixelRatio||1;
   canvas.width=box.width*scale;canvas.height=box.height*scale;
   const c=canvas.getContext('2d');c.scale(scale,scale);c.clearRect(0,0,box.width,box.height);
