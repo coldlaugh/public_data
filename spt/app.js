@@ -1,9 +1,9 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d0ea26ed6d2c82ab";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d0ea26ed6d2c82ab";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d0ea26ed6d2c82ab';
-import {artifactVersion} from './artifact-links.js?v=d0ea26ed6d2c82ab';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=d0ea26ed6d2c82ab';
-import {createColoring} from './coloring.js?v=d0ea26ed6d2c82ab';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=85299f48cb6821f6";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=85299f48cb6821f6";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=85299f48cb6821f6';
+import {artifactVersion} from './artifact-links.js?v=85299f48cb6821f6';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=85299f48cb6821f6';
+import {createColoring} from './coloring.js?v=85299f48cb6821f6';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -154,7 +154,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d0ea26ed6d2c82ab';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=85299f48cb6821f6';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -203,7 +203,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d0ea26ed6d2c82ab', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=85299f48cb6821f6', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
