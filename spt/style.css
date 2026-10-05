@@ -32,3 +32,6 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #question-scope{font-size:.75rem;line-height:1.5;margin:7px 0;color:var(--muted)}
 
 #visible-selection-help{font-size:.75rem;line-height:1.5;margin:0;color:var(--muted)}
+
+/* Keep the view panel and its neighboring action inside compact plot widths. */
+.stage-controls>details{min-width:0}.stage-controls .projection-controls{width:230px;max-width:100%;grid-template-columns:minmax(0,1fr)}.stage-controls .projection-controls select{min-width:0}
