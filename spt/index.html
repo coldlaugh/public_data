@@ -3,8 +3,8 @@
 <head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
-<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=08626d9423727d75"><link rel="stylesheet" href="./style.css?v=08626d9423727d75">
-<script src="./app.js?v=08626d9423727d75" type="module"></script>
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=8436eaf7c25a46c5"><link rel="stylesheet" href="./style.css?v=8436eaf7c25a46c5">
+<script src="./app.js?v=8436eaf7c25a46c5" type="module"></script>
 </head>
 <body>
 <header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
@@ -25,7 +25,7 @@
 <div id="color-legend" aria-label="Trajectory color legend" hidden></div>
 <div class="stage-status"><span id="plot-title">Trajectory preview</span><span id="plot-meta">No dataset loaded</span><span id="selection">No trajectories selected</span></div>
 <div id="projection-progress" role="status" hidden><span class="loading-ring"></span><strong>Preparing your dataset</strong><span id="projection-progress-text">The agent is checking your data. The projection will appear here when ready.</span></div>
-<div id="trajectory-card" role="region" aria-labelledby="trajectory-title" tabindex="0" hidden><div class="trajectory-card-head"><strong id="trajectory-title"></strong><button id="close-trajectory" class="quiet" aria-label="Close trajectory preview">×</button></div><p id="trajectory-source"></p><canvas id="trajectory-animation" aria-label="Animated selected trajectory"></canvas><div><span id="trajectory-frame"></span><button id="trajectory-play">Pause</button></div><p id="trajectory-note">Preview animation uses uniform steps; displayed timestamps preserve acquisition gaps.</p></div>
+<div id="trajectory-card" role="region" aria-labelledby="trajectory-title" tabindex="0" hidden><div class="trajectory-card-head"><strong id="trajectory-title"></strong><button id="close-trajectory" class="quiet" aria-label="Close trajectory preview">×</button></div><p id="trajectory-source"></p><p id="trajectory-measurement" hidden></p><canvas id="trajectory-animation" aria-label="Animated selected trajectory"></canvas><div><span id="trajectory-frame"></span><button id="trajectory-play">Pause</button></div><p id="trajectory-note">Preview animation uses uniform steps; displayed timestamps preserve acquisition gaps.</p></div>
 </div>
 </section>
 <section class="conversation" id="conversation" aria-label="Analysis conversation">

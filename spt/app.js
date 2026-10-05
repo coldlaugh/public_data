@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=08626d9423727d75";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=08626d9423727d75";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=08626d9423727d75';
-import {artifactVersion} from './artifact-links.js?v=08626d9423727d75';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=08626d9423727d75';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=08626d9423727d75';
-import {createColoring} from './coloring.js?v=08626d9423727d75';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=8436eaf7c25a46c5";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8436eaf7c25a46c5";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8436eaf7c25a46c5';
+import {artifactVersion} from './artifact-links.js?v=8436eaf7c25a46c5';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=8436eaf7c25a46c5';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8436eaf7c25a46c5';
+import {createColoring} from './coloring.js?v=8436eaf7c25a46c5';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -81,7 +81,7 @@ function projectorState() {
 }
 function setColoring(spec){
   pointColoring=createColoring(spec,[...new Set([...points.map(p=>p.key),...(embedding?.points||[]).map(p=>p.id)])]);
-  legacyApi?.color(pointColoring?[...pointColoring.colors]:null);draw();
+  updateTrajectoryMeasurement();legacyApi?.color(pointColoring?[...pointColoring.colors]:null);draw();
   const legend=$('color-legend');legend.replaceChildren();legend.hidden=!pointColoring;
   if(!pointColoring)return;
   const title=document.createElement('strong');title.textContent=spec.label+(spec.units?' ('+spec.units+')':'');legend.append(title);
@@ -103,6 +103,7 @@ function updateLegendScope(){
   const visible=filteredProjectionIds();
   if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajectories in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
   else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
+  if($('projection').value==='raw')note.textContent+=' · Raw-view selection uses red highlights.';
 }
 function updateSelectionScope(){
   if(rawSelectionError&&embedding&&[...selected].every(id=>embedding.points.some(p=>p.id===id))&&$('error').textContent===rawSelectionError)error(null);
@@ -193,7 +194,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=08626d9423727d75';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8436eaf7c25a46c5';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -246,7 +247,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=08626d9423727d75', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=8436eaf7c25a46c5', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -603,6 +604,13 @@ function focusLatest(){
 $('latest-message').onclick=focusLatest;
 $('messages').addEventListener('scroll',()=>{const last=$('messages').lastElementChild;if(!last)return;const r=last.getBoundingClientRect(),box=$('messages').getBoundingClientRect();$('latest-message').hidden=r.top<box.bottom&&r.bottom>box.top;},{passive:true});
 let trajectoryFrame=0,trajectoryRunning=true,trajectoryTimer=null,trajectoryPath=[],trajectoryTimes=[],trajectoryReturnFocus=null;
+function updateTrajectoryMeasurement(){
+  const line=$('trajectory-measurement'),spec=pointColoring?.spec;
+  line.hidden=!spec||!selectedCardId;
+  if(line.hidden){line.textContent='';return;}
+  const present=Object.hasOwn(spec.values,selectedCardId);
+  line.textContent=spec.label+': '+(present?String(spec.values[selectedCardId])+(spec.units?' '+spec.units:''):'No value supplied for this trajectory.');
+}
 function showTrajectory(ids){
   if(ids.length!==1){$('trajectory-card').hidden=true;selectedCardId=null;clearTimeout(trajectoryTimer);return;}
   const track=points.find(t=>t.key===ids[0]),vector=embedding?.points.find(p=>p.id===ids[0]);
@@ -611,7 +619,7 @@ function showTrajectory(ids){
   const focused=document.activeElement;
   if(!$('trajectory-card').contains(focused))trajectoryReturnFocus=focused===document.body?null:focused;
   selectedCardId=ids[0];trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
-  $('trajectory-title').textContent=ids[0];$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
+  updateTrajectoryMeasurement();$('trajectory-title').textContent=ids[0];$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
   $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
   $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=!available;
