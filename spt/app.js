@@ -1,11 +1,11 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=7e3a207dec70cd07";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=7e3a207dec70cd07";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=7e3a207dec70cd07';
-import {artifactVersion} from './artifact-links.js?v=7e3a207dec70cd07';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=7e3a207dec70cd07';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=7e3a207dec70cd07';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=7e3a207dec70cd07';
-import {createColoring} from './coloring.js?v=7e3a207dec70cd07';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=a3852dbc23a5e1c7";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=a3852dbc23a5e1c7";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=a3852dbc23a5e1c7';
+import {artifactVersion} from './artifact-links.js?v=a3852dbc23a5e1c7';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=a3852dbc23a5e1c7';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=a3852dbc23a5e1c7';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=a3852dbc23a5e1c7';
+import {createColoring} from './coloring.js?v=a3852dbc23a5e1c7';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -191,7 +191,7 @@ function updateLegendScope(){
   const visible=filteredProjectionIds();
   if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajectories in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
   else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
-  if($('projection').value==='raw')note.textContent+=' · Raw-view selection uses red highlights.';
+  note.textContent+=$('projection').value==='raw'?' · Selected trajectories use thicker lines and larger points; colors retain supplied values.':' · Selected points are enlarged and labelled; colors retain supplied values.';
 }
 function updateSelectionScope(){
   if(rawSelectionError&&embedding&&[...selected].every(id=>embedding.points.some(p=>p.id===id))&&$('error').textContent===rawSelectionError)error(null);
@@ -292,7 +292,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=7e3a207dec70cd07';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=a3852dbc23a5e1c7';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -350,7 +350,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=7e3a207dec70cd07', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=a3852dbc23a5e1c7', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -691,10 +691,10 @@ function draw(){
   const s=Math.min((box.width-48)/(maxX-minX||1),(box.height-48)/(maxY-minY||1));
   projected=visible.map((t,i)=>{
     const path=t.path.map(([x,y])=>[24+(x-minX)*s,box.height-24-(y-minY)*s]);
-    c.strokeStyle=selected.size?(selected.has(t.key)?'#d6584f':'#9ca9be'):(pointColoring?(pointColoring.colors.get(t.key)||'#b7bec8'):['#547cce','#388c94','#9671b2','#b18745'][i%4]);
-    c.globalAlpha=selected.size&&!selected.has(t.key)?.25:.8;c.lineWidth=selected.has(t.key)?1.6:.9;c.beginPath();
+    c.strokeStyle=pointColoring?(pointColoring.colors.get(t.key)||'#b7bec8'):selected.size?(selected.has(t.key)?'#d6584f':'#9ca9be'):['#547cce','#388c94','#9671b2','#b18745'][i%4];
+    c.globalAlpha=!pointColoring&&selected.size&&!selected.has(t.key)?.25:.8;c.lineWidth=selected.has(t.key)?(pointColoring?2.6:1.6):.9;c.beginPath();
     path.forEach(([x,y],j)=>j?c.lineTo(x,y):c.moveTo(x,y));c.stroke();
-    if(projectedEmbedding||t.path.length>0&&t.path.every(([x,y])=>x===t.path[0][0]&&y===t.path[0][1])){c.fillStyle=c.strokeStyle;c.beginPath();c.arc(path[0][0],path[0][1],selected.has(t.key)?4:3,0,Math.PI*2);c.fill();}
+    if(projectedEmbedding||t.path.length>0&&t.path.every(([x,y])=>x===t.path[0][0]&&y===t.path[0][1])){c.fillStyle=c.strokeStyle;c.beginPath();c.arc(path[0][0],path[0][1],selected.has(t.key)?(pointColoring?5:4):3,0,Math.PI*2);c.fill();}
     return {...t,path};
   });c.globalAlpha=1;
   if(polygon.length){c.beginPath();polygon.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle='#4779dc';c.lineWidth=1.5;c.stroke();}
