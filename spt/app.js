@@ -1,15 +1,15 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=ef5d13e705375696";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=ef5d13e705375696";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=ef5d13e705375696';
-import {artifactVersion} from './artifact-links.js?v=ef5d13e705375696';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=ef5d13e705375696';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=ef5d13e705375696';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=ef5d13e705375696';
-import {createColoring} from './coloring.js?v=ef5d13e705375696';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=ef5d13e705375696';
-import {createViewRecovery} from './view-recovery.js?v=ef5d13e705375696';
-import {createAgentTools} from './agent-tools.js?v=ef5d13e705375696';
-import {createAgentReceipts} from './agent-receipts.js?v=ef5d13e705375696';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=c845287bafec7383";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=c845287bafec7383";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=c845287bafec7383';
+import {artifactVersion} from './artifact-links.js?v=c845287bafec7383';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=c845287bafec7383';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=c845287bafec7383';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=c845287bafec7383';
+import {createColoring} from './coloring.js?v=c845287bafec7383';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=c845287bafec7383';
+import {createViewRecovery} from './view-recovery.js?v=c845287bafec7383';
+import {createAgentTools} from './agent-tools.js?v=c845287bafec7383';
+import {createAgentReceipts} from './agent-receipts.js?v=c845287bafec7383';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -84,6 +84,7 @@ function saveWorkspaceDraft(){
   const key=unavailableWorkspace?recoveryDraftKey:workspaceKey(),question=$('question').value;
   if(!active&&!question.trim()&&!files.length){workspaceDrafts.delete(key);return;}
   workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[...selected]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||$('projection').value):$('projection').value,
+    pendingFiles:[...pendingFiles],
     projectionSettings:loadingWorkspace?draftToRestore?.projectionSettings:legacyApi?.viewSettings?.()||workspaceDrafts.get(key)?.projectionSettings,
     ...(!active||unavailableWorkspace?{files,sampleFile:sampleFile||(unavailableWorkspace&&storedDemoContext()?files[0]:null),sampleContext:sampleContext||(unavailableWorkspace?storedDemoContext():''),creationKey:unavailableWorkspace?recoveryDraftKey.slice(4):creationKey,missingFiles:unavailableWorkspace?!files.length:missingRecoveryFiles||(missingAnalysisLink&&!files.length&&!!question.trim())}:{})});
   if(active&&!unavailableWorkspace&&!loadingWorkspace&&!pendingNativeSelection)viewRecoveryFailed=!viewRecovery.save(active.id,workspaceDrafts.get(key));
@@ -296,16 +297,18 @@ function renderFileControls() {
   $('start-new-analysis').disabled=sending;
   $('continue-analysis').disabled=$('retry-analysis').disabled=sending;
   $('recovery-note').hidden=!missingRecoveryFiles;
-  $('files').disabled=$('sample').disabled=sending||loadingWorkspace||unavailableWorkspace||committed;
+  $('files').disabled=sending||loadingWorkspace||unavailableWorkspace;
+  $('sample').disabled=sending||loadingWorkspace||unavailableWorkspace||files.length>0;
+  if(active&&pendingFiles.length&&!['completed','failed','cancelled'].includes(latest?.status))$('send').disabled=true;
   $('dataset-lock').hidden=!committed;
   const storedDemo=latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1];
   $('demo-info').hidden=!(sampleFile&&files.includes(sampleFile))&&!storedDemo;
   if(storedDemo)$('demo-context').replaceChildren(renderAnswer(storedDemo));
   $('file-list').replaceChildren(...files.map(file => {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
-    if(!sending&&!unavailableWorkspace&&(!active||!latest?.files?.length)){
+    if(!sending&&!unavailableWorkspace&&(!active||pendingFiles.includes(file))){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file),panelOpen=$('data-panel').open;if(active)pendingFiles=remaining;setFiles(remaining,true);$('data-panel').open=panelOpen;error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
+      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&!pendingFiles.includes(file))return;const remaining=files.filter(f=>f!==file),panelOpen=$('data-panel').open;if(active)pendingFiles=pendingFiles.filter(f=>f!==file);setFiles(remaining,true);$('data-panel').open=panelOpen;error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
     }
     return chip;
   }));
@@ -317,6 +320,7 @@ function renderSendHint(){
   else if(unavailableWorkspace)$('send-hint').textContent='This unavailable analysis cannot accept follow-ups.';
   else if(!active)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
   else $('send-hint').textContent=['running','queued'].includes(latest?.status)?'Follow-ups will run after the current analysis.':'You can return to this conversation from this browser.';
+  if(active&&pendingFiles.length&&!sending)$('send-hint').textContent=pendingFiles.length+' new file'+(pendingFiles.length===1?'':'s')+' will accompany your next question.'+(!['completed','failed','cancelled'].includes(latest?.status)?' Wait for the current analysis to finish.':'');
   if(active&&!unavailableWorkspace&&!sending)$('send-hint').textContent+=viewRecoveryFailed?' View settings could not be saved for reload.':' View settings recover after reload in this tab; unsent questions do not.';
 }
 function dockProjectionLegend(open){
@@ -377,7 +381,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=ef5d13e705375696';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=c845287bafec7383';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -467,7 +471,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=ef5d13e705375696', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=c845287bafec7383', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -492,7 +496,8 @@ $('files').addEventListener('change', async event => {
 
     const chosen = [...event.target.files];event.target.value='';
     if(!chosen.length)return;
-    if(sending||active&&latest?.files?.length)throw new Error('Start a new analysis for a different dataset.');
+    if(sending||loadingWorkspace||unavailableWorkspace)throw new Error('Wait for this workspace to be ready before adding files.');
+    const origin=workspaceKey();
     const names=new Set(files.map(f=>f.name.toLowerCase()));
     for(const f of chosen){if(names.has(f.name.toLowerCase()))throw new Error('A file named '+f.name+' is already selected. Remove it first to replace it.');names.add(f.name.toLowerCase());}
     const selectedBytes=files.reduce((n,f)=>n+(f.bytes??Math.floor(f.data.length*3/4)-(f.data.endsWith('==')?2:f.data.endsWith('=')?1:0)),0);
@@ -504,7 +509,8 @@ $('files').addEventListener('change', async event => {
       if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error(f.name+': this file contains binary or unsupported control characters. Export it as UTF-8 text before adding it. Previously selected files are still available; none of this batch was added.');
       added.push({name:f.name,bytes:f.size,data:encode(bytes)});
     }
-    const combined=[...files,...added];if(active)pendingFiles=combined;setFiles(combined,true);$('data-panel').querySelector('summary').focus();
+    if(workspaceKey()!==origin||sending||loadingWorkspace||unavailableWorkspace)throw new Error('The workspace changed while reading files. Add them again in the intended analysis.');
+    const combined=[...files,...added];if(active)pendingFiles=[...pendingFiles,...added];setFiles(combined,true);$('data-panel').querySelector('summary').focus();
     error(null);
   } catch (err) { error(err); }
 });
@@ -529,6 +535,7 @@ async function submitQuestion(question,{followupRequestId=null}={}) {
   if(unavailableWorkspace)throw new Error('Continue in a new analysis before sending another question.');
   if(loadingWorkspace)throw new Error('Wait for this analysis to load before sending a follow-up.');
   if (!question.trim()) throw new Error('Enter your question first.');
+  if(active&&pendingFiles.length&&!['completed','failed','cancelled'].includes(latest?.status))throw new Error('Your new files are staged. Wait for the current analysis to finish before sending them with your next question.');
 
   const originKey=workspaceKey(),originJob=active,originCreationKey=creationKey;
   let submittedJob=originJob;
@@ -549,8 +556,8 @@ async function submitQuestion(question,{followupRequestId=null}={}) {
       submittedJob={...created,title:question.trim().slice(0,70),sourceDraftKey:originKey};remember(submittedJob);
       if(workspaceKey()===originKey){active=submittedJob;sendingWorkspaceKey=active.id;writeWorkspaceAddress('replace');}
     } else {
-      if (!pendingFollowup || pendingFollowup.job !== originJob.id || pendingFollowup.question !== q||JSON.stringify(pendingFollowup.selection)!==JSON.stringify(selection)||followupRequestId&&pendingFollowup.requestId!==followupRequestId)
-        pendingFollowup = {job:originJob.id, question:q, selection,requestId:followupRequestId||crypto.randomUUID()};
+      if (!pendingFollowup || pendingFollowup.job !== originJob.id || pendingFollowup.question !== q||JSON.stringify(pendingFollowup.selection)!==JSON.stringify(selection)||pendingFollowup.fileSignature!==JSON.stringify(pendingFiles.map(f=>[f.name,f.data]))||followupRequestId&&pendingFollowup.requestId!==followupRequestId)
+        pendingFollowup = {job:originJob.id, question:q, selection,fileSignature:JSON.stringify(pendingFiles.map(f=>[f.name,f.data])),requestId:followupRequestId||crypto.randomUUID()};
       await api(`/api/jobs/${originJob.id}/messages`, {question:q, selection:pendingFollowup.selection,requestId:pendingFollowup.requestId,...(pendingFiles.length?{files:[...pendingFiles]}:{})},originJob);
       pendingFollowup=null;if(active?.id===originJob.id)pendingFiles=[];
     }
@@ -606,6 +613,7 @@ function render(job) {
   renderSendHint();
   if (!files.length&&job.files.length) setFiles(job.files);
   const restoredDraft=draftToRestore;draftToRestore=null;
+  if(restoredDraft?.pendingFiles?.length){pendingFiles=restoredDraft.pendingFiles;setFiles([...job.files,...pendingFiles],true);}
   if(restoredDraft)selected=new Set(restoredDraft.selection);
   const currentTurn=job.turns.findIndex(t=>t.status==='running');
   const projectionStage=job.events.filter(e=>e.kind==='progress'&&e.turn===currentTurn).at(-1)?.stage;
@@ -898,7 +906,7 @@ function agentTracks(){
   const visible=legacyMode&&legacyApi?new Set(legacyApi.visibleTrackIds()):new Set((projectedEmbedding||points).map(p=>p.key||p.id));
   return [...new Set([...raw.keys(),...encoded.keys()])].map(id=>{const track=raw.get(id),vector=encoded.get(id);
     return {id,file:track?.file||vector?.file,trackId:track?.id||vector?.trackId,observationCount:track?.path.length??null,
-      rawPreviewAvailable:!!track,encoderAvailable:!!vector,inCurrentView:visible.has(id),selected:selected.has(id)};});
+      rawPreviewAvailable:!!track,encoderAvailable:!!vector,inCurrentView:visible.has(id),selected:selected.has(id),acquisition:trajectoryAcquisitionSummary(track)};});
 }
 if(document.modelContext?.registerTool){
   const lifecycle=new AbortController();

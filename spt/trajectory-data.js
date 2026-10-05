@@ -93,3 +93,26 @@ export function encoderPreviewTrack(point,previous){
   const sameObservations=previous?.path?.length===path.length&&previous.path.every(([x,y],i)=>x===path[i][0]&&y===path[i][1]);
   return {id:point.trackId,key:point.id,file:point.file,path,times:sameObservations&&previous.times?.length===path.length?previous.times:[],fromEncoder:true,...(sameObservations&&previous.hasZColumn?{hasZColumn:true,zValues:previous.zValues?.length===path.length?previous.zValues:Array(path.length).fill(null)}:{})};
 }
+
+// Summarize preview observations only; do not infer a frame rate or fill gaps.
+export function trajectoryAcquisitionSummary(track){
+  if(!track)return null;
+  const count=track.path.length,times=track.times||[];
+  const complete=count>0&&times.length===count&&times.every(Number.isFinite);
+  let start=null,end=null,min=null,max=null,repeated=0;
+  if(complete){
+    const seen=new Set();
+    for(let i=0;i<times.length;i++){
+      const time=times[i];start=start===null?time:Math.min(start,time);end=end===null?time:Math.max(end,time);
+      if(seen.has(time))repeated++;else seen.add(time);
+      const interval=i?time-times[i-1]:0;
+      if(interval>0){min=min===null?interval:Math.min(min,interval);max=max===null?interval:Math.max(max,interval);}
+    }
+  }
+  const hasZ=track.hasZColumn===true?true:track.fromEncoder?null:false;
+  const finiteZ=hasZ===true?(track.zValues||[]).slice(0,count).filter(Number.isFinite).length:null;
+  return {scope:'preview-observations',xyUnits:track.fromEncoder?null:'µm',
+    timing:{available:complete,units:complete?'s':null,start,end,
+      positiveIntervalMin:min,positiveIntervalMax:max,repeatedTimestampCount:complete?repeated:null},
+    z:{columnPresent:hasZ,units:hasZ===true?'µm':null,finiteCount:finiteZ,missingOrInvalidCount:hasZ===true?count-finiteZ:null}};
+}

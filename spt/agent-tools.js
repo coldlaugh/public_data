@@ -12,7 +12,7 @@ export function createAgentTools(context) {
   function checkWorkspace(expected){if(expected!==context.workspace().workspaceId)fail('stale_workspace','The workspace changed. Read it again before acting.');}
   return [
     tool('read_spt_workspace','Read dataset counts, workspace ID, availability, projection readiness and selection. Does not send analysis or expose credentials.',object,()=>context.workspace(),true),
-    tool('list_spt_tracks','List file-qualified track IDs and raw/encoder/view availability. Paginated; use these exact IDs for selection.',{...object,properties:{offset:integer(),limit:{type:'integer',minimum:1,maximum:200},query:{type:'string',maxLength:200}}},input=>{
+    tool('list_spt_tracks','List exact file-qualified IDs, raw/encoder/view availability and preview acquisition summaries (timing, units, optional z). Null means unknown; intervals are observed, not an inferred frame rate. Paginated; use these exact IDs for selection.',{...object,properties:{offset:integer(),limit:{type:'integer',minimum:1,maximum:200},query:{type:'string',maxLength:200}}},input=>{
       const offset=bound(input.offset,0,Number.MAX_SAFE_INTEGER),limit=bound(input.limit,100,200);
       if(!limit||input.query!==undefined&&(typeof input.query!=='string'||input.query.length>200))fail('invalid_argument','Use a text query and a limit from 1 to 200.');
       const query=(input.query||'').toLocaleLowerCase();const tracks=context.tracks().filter(t=>!query||t.id.toLocaleLowerCase().includes(query));
