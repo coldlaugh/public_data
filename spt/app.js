@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=f84ea86909e27897";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=f84ea86909e27897";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=f84ea86909e27897';
-import {artifactVersion} from './artifact-links.js?v=f84ea86909e27897';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=f84ea86909e27897';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=f84ea86909e27897';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=f84ea86909e27897';
-import {createColoring} from './coloring.js?v=f84ea86909e27897';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=f84ea86909e27897';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=9e40346669975800";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=9e40346669975800";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=9e40346669975800';
+import {artifactVersion} from './artifact-links.js?v=9e40346669975800';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=9e40346669975800';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=9e40346669975800';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=9e40346669975800';
+import {createColoring} from './coloring.js?v=9e40346669975800';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=9e40346669975800';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -304,7 +304,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=f84ea86909e27897';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=9e40346669975800';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -378,7 +378,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=f84ea86909e27897', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=9e40346669975800', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -475,6 +475,12 @@ $('composer').onsubmit = event => { event.preventDefault(); submitQuestion($('qu
 $('cancel').onclick = async () => {
   try { await api(`/api/jobs/${active.id}/cancel`, {}); await refresh(); } catch(err) { error(err); }
 };
+function artifactOutcome(file,job=latest){
+  const status=job?.turns?.[file.turn??0]?.status;
+  if(status==='failed')return {label:'Request incomplete',detail:'This request did not finish. This file may be incomplete.'};
+  if(status==='cancelled')return {label:'Request stopped',detail:'This request was stopped before completion. This file may be incomplete.'};
+  return null;
+}
 function message(author, text, turn=Infinity) {
   const block = document.createElement('div'); block.className = 'message ' + (author === 'SPT AGENT' ? 'agent' : 'user');
   const label = document.createElement('span'); label.className = 'author'; label.textContent = author;
@@ -574,7 +580,18 @@ function render(job) {
       }
       blocks.push(bubble);
     }
-    if(t.answer)blocks.push(message('SPT AGENT',t.answer,turn));
+    if(['completed','failed','cancelled'].includes(t.status)){
+      const bubble=message('SPT AGENT',t.answer||'',turn),note=document.createElement('p'),outcome=document.createElement('strong');
+      note.className='response-status';note.dataset.status=t.status;
+      outcome.textContent='Response '+(turn+1)+' · '+({completed:'Complete',failed:'Could not finish',cancelled:'Stopped'})[t.status];note.append(outcome);
+      if(t.status!=='completed'){
+        const detail=document.createElement('span');
+        detail.textContent=t.status==='failed'?'This request did not finish. Any text or files from this response may be incomplete. You can ask a follow-up to continue.':'This request was stopped before completion. Any text or files from this response may be incomplete.';
+        note.append(detail);
+      }
+      bubble.querySelector('.author').after(note);blocks.push(bubble);
+    }
+    else if(t.answer)blocks.push(message('SPT AGENT',t.answer,turn));
     else if(t.status==='queued')blocks.push(message('SPT AGENT','Your question is queued.'));
     else if(t.status==='running'){
       const update=job.events.filter(e=>e.kind==='public_update'&&e.turn===turn).at(-1);
@@ -591,8 +608,8 @@ function render(job) {
   $('downloads').replaceChildren();
   const displayedArtifacts = listedResults(job.artifacts);
   for (const file of displayedArtifacts) {
-    const version=artifactVersion(file,job.artifacts);
-    const a=document.createElement('button');a.className='artifact';a.textContent=file.name+' · Response '+version.response+(version.superseded?' · Earlier version':'');a.onclick=()=>openArtifact(file);$('downloads').append(a);
+    const version=artifactVersion(file,job.artifacts),outcome=artifactOutcome(file,job);
+    const a=document.createElement('button');a.className='artifact';a.textContent=file.name+' · Response '+version.response+(version.superseded?' · Earlier version':'')+(outcome?' · '+outcome.label:'');a.onclick=()=>openArtifact(file);$('downloads').append(a);
   }
   $('result-count').textContent=displayedArtifacts.length?displayedArtifacts.length+' file'+(displayedArtifacts.length===1?'':'s'):'No outputs yet';
   $('bundle-controls').hidden=!displayedArtifacts.length;$('download-bundle').disabled=bundleBusy;
@@ -777,6 +794,7 @@ function openArtifact(file){
   $('artifact-title').textContent=file.name;$('artifact-download').href=url;$('artifact-download').download=file.name;
   const version=artifactVersion(file,latest?.artifacts||[]),notice=$('artifact-version');
   notice.replaceChildren(document.createTextNode('Response '+version.response+(version.superseded?' · Earlier version. A newer version of this file is available.':' · Latest version.')));
+  const outcome=artifactOutcome(file);if(outcome){const detail=document.createElement('span');detail.className='artifact-outcome';detail.textContent=outcome.detail;notice.append(detail);}
   if(version.superseded){const button=document.createElement('button');button.className='quiet';button.textContent='Open latest version';button.onclick=()=>{openArtifact(version.latest);$('artifact-download').focus();};notice.append(button);}
   const preview=$('artifact-preview');preview.replaceChildren();
   $('figure-view-controls').hidden=true;

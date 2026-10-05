@@ -78,3 +78,11 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #artifact-dialog[open]:has(#figure-view-controls:not([hidden])){display:flex;flex-direction:column;overflow:hidden}
 #artifact-dialog:has(#figure-view-controls:not([hidden])) .artifact-dialog-head,#artifact-dialog:has(#figure-view-controls:not([hidden])) #artifact-version,#figure-view-controls{flex:none}
 #artifact-dialog:has(#figure-view-controls:not([hidden])) #artifact-preview{flex:1;min-height:0;max-height:none}
+
+.response-status{margin:0 0 8px;color:#536983;font-size:.8125rem;line-height:1.5;white-space:normal}
+.response-status strong{font-weight:500}
+.response-status span{display:block;margin-top:4px}
+.response-status[data-status=failed],.response-status[data-status=cancelled]{padding:8px 10px;border-left:3px solid #bc8830;background:#fff8e9;color:#6b501f}
+.response-status[data-status=cancelled]{border-left-color:#8c99aa;background:#eef1f6;color:#536070}
+
+.artifact-outcome{display:block;margin-top:6px;color:#755823;font-weight:500}
