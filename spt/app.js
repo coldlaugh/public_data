@@ -1,11 +1,11 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=a3852dbc23a5e1c7";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=a3852dbc23a5e1c7";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=a3852dbc23a5e1c7';
-import {artifactVersion} from './artifact-links.js?v=a3852dbc23a5e1c7';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=a3852dbc23a5e1c7';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=a3852dbc23a5e1c7';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=a3852dbc23a5e1c7';
-import {createColoring} from './coloring.js?v=a3852dbc23a5e1c7';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=9f92b70fd87bbfaf";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=9f92b70fd87bbfaf";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=9f92b70fd87bbfaf';
+import {artifactVersion} from './artifact-links.js?v=9f92b70fd87bbfaf';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=9f92b70fd87bbfaf';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=9f92b70fd87bbfaf';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=9f92b70fd87bbfaf';
+import {createColoring} from './coloring.js?v=9f92b70fd87bbfaf';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -292,7 +292,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=a3852dbc23a5e1c7';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=9f92b70fd87bbfaf';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -350,7 +350,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=a3852dbc23a5e1c7', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=9f92b70fd87bbfaf', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -672,6 +672,7 @@ $('view-panel').onkeydown=event=>{if(event.key==='Escape'){$('view-panel').open=
 const canvas=$('plot');let projected=[];
 function updatePlotHelp(method=$('projection').value){
   $('plot-help').textContent=method==='raw'?'Click a trajectory to inspect it, or find its filename and ID in View & parameters. Drag a lasso to select several. Selected tracks accompany your next question.':'Each point represents one trajectory’s encoder vector. Projection distances have no spatial units and clusters alone do not establish a motion model. Click a point to inspect it, or find its filename and ID in View & parameters.';
+  if(method!=='raw')$('plot-help').textContent+=' In 3D, Rotate view moves only the camera; Pause rotation keeps your selection.';
   if(method==='umap'||method==='tsne')$('plot-help').textContent+=' This projection is stochastic; rerunning can change the layout even with the same parameters.';
 }
 function draw(){
