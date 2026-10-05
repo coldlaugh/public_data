@@ -1,13 +1,14 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=4b0880a7e9b53cd3";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=4b0880a7e9b53cd3";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=4b0880a7e9b53cd3';
-import {artifactVersion} from './artifact-links.js?v=4b0880a7e9b53cd3';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=4b0880a7e9b53cd3';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=4b0880a7e9b53cd3';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=4b0880a7e9b53cd3';
-import {createColoring} from './coloring.js?v=4b0880a7e9b53cd3';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=4b0880a7e9b53cd3';
-import {createViewRecovery} from './view-recovery.js?v=4b0880a7e9b53cd3';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=d0ee60ab139c5fff";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d0ee60ab139c5fff";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d0ee60ab139c5fff';
+import {artifactVersion} from './artifact-links.js?v=d0ee60ab139c5fff';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d0ee60ab139c5fff';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d0ee60ab139c5fff';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d0ee60ab139c5fff';
+import {createColoring} from './coloring.js?v=d0ee60ab139c5fff';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d0ee60ab139c5fff';
+import {createViewRecovery} from './view-recovery.js?v=d0ee60ab139c5fff';
+import {createAgentTools} from './agent-tools.js?v=d0ee60ab139c5fff';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -368,7 +369,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=4b0880a7e9b53cd3';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d0ee60ab139c5fff';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -458,7 +459,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=4b0880a7e9b53cd3', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=d0ee60ab139c5fff', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -873,13 +874,30 @@ $('show-data').onclick=()=>{panels(true,true);$('hide-data').focus();};
 $('hide-chat').onclick=()=>{panels(true,false);$('show-chat').focus();};
 $('show-chat').onclick=()=>{panels(true,true);$('hide-chat').focus();};
 
+function agentWorkspace(){
+  const projection=projectorState(),job=latest?.id===active?.id?latest:null;
+  return {workspaceId:workspaceKey(),files:files.map(f=>f.name),job:active?.id||null,status:job?.status||null,
+    loading:loadingWorkspace,sending,available:!unavailableWorkspace&&!missingAnalysisLink,
+    connectionWarning:connectionError||null,error:$('error').textContent||null,draftPresent:!!$('question').value.trim(),
+    selectedTrackIds:[...selected],inventoryScope:'Browser preview and published encoder vectors; original files may contain additional tracks.',knownTrackCount:new Set([...points.map(p=>p.key),...(embedding?.points||[]).map(p=>p.id)]).size,
+    projection:{method:projection.projection,ready:projection.projectionReady,available:projection.availableProjections,
+      pointCount:projection.pointCount,notice:$('projection-notice').hidden?null:$('projection-notice').textContent}};
+}
+function agentTracks(){
+  const raw=new Map(points.map(p=>[p.key,p])),encoded=new Map((embedding?.points||[]).map(p=>[p.id,p]));
+  const visible=legacyMode&&legacyApi?new Set(legacyApi.visibleTrackIds()):new Set((projectedEmbedding||points).map(p=>p.key||p.id));
+  return [...new Set([...raw.keys(),...encoded.keys()])].map(id=>{const track=raw.get(id),vector=encoded.get(id);
+    return {id,file:track?.file||vector?.file,trackId:track?.id||vector?.trackId,observationCount:track?.path.length??null,
+      rawPreviewAvailable:!!track,encoderAvailable:!!vector,inCurrentView:visible.has(id),selected:selected.has(id)};});
+}
 if(document.modelContext?.registerTool){
   const lifecycle=new AbortController();
-  const register=t=>Promise.resolve(document.modelContext.registerTool(t,{signal:lifecycle.signal})).catch(()=>{});
-  register({name:'read_spt_workspace',description:'Read current dataset, job status, and selected track IDs.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>({files:files.map(f=>f.name),job:active?.id,status:latest?.status,selectedTrackIds:[...selected]})});
-  register({name:'stage_spt_sample',description:'Load the sample dataset and stage its question without starting analysis.',inputSchema:{type:'object',properties:{},additionalProperties:false},execute:loadSample});
-  register({name:'set_spt_projection',description:'Compute and show PCA, UMAP, or t-SNE from the available encoder vectors, or show raw trajectories.',inputSchema:{type:'object',properties:{method:{type:'string',enum:['raw','pca','umap','tsne']}},required:['method'],additionalProperties:false},execute:input=>setProjection(input?.method)});
-  register({name:'select_spt_tracks',description:'Select file-qualified track IDs (filename:track_id) in the visible trajectory preview.',inputSchema:{type:'object',properties:{ids:{type:'array',items:{type:'string'}}},required:['ids'],additionalProperties:false},execute:input=>selectTracks(input?.ids)});
+  const context={workspace:agentWorkspace,tracks:agentTracks,draft:()=>$('question').value,
+    analysis:()=>{const job=latest?.id===active?.id?latest:null;return {status:job?.status||null,turns:job?.turns||[],
+      artifacts:(job?.artifacts||[]).map(file=>({id:file.id,name:file.name,responseIndex:file.turn??0,
+        latestVersion:!artifactVersion(file,job.artifacts).superseded,outcome:artifactOutcome(file,job)?.label||'Available'}))};},
+    stageSample:()=>loadSample(),project:setProjection,select:selectTracks,submit:submitQuestion};
+  for(const tool of createAgentTools(context))Promise.resolve(document.modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{});
   window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
 }
 function resolveArtifact(href,turn=Infinity){return resolveArtifactLink(href,latest?.artifacts||[],turn);}
