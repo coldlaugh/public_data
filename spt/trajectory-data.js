@@ -34,7 +34,8 @@ export function parseTrajectoryTable(text,filename){
   if(!rows.length)return {tracks:[],skippedRows:0,...timing};
   const columns=rows[0].map(value=>value.trim());
   const ix=columns.indexOf('x_um'),iy=columns.indexOf('y_um'),id=columns.indexOf('track_id'),it=columns.indexOf('t_s');
-  if(ix<0||iy<0||id<0)return {tracks:[],skippedRows:0,...timing};
+  const missingColumns=['track_id','x_um','y_um'].filter(name=>!columns.includes(name));
+  if(missingColumns.length)return {tracks:[],skippedRows:0,missingColumns,...timing};
   if(['x_um','y_um','track_id','t_s'].some(name=>columns.filter(value=>value===name).length>1))throw new Error('Duplicate trajectory columns.');
   const byId=new Map();let skippedRows=0;
   for(const row of rows.slice(1)){
@@ -58,7 +59,7 @@ export function parseTrajectoryTable(text,filename){
     }
     return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time)};
   });
-  return {tracks,skippedRows,...timing};
+  return {tracks,skippedRows,hasTimestamps:it>=0,...timing};
 }
 
 // Keep the control bounded without making any tracks inaccessible to a refined search.

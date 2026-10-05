@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=530e2052876442de";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=530e2052876442de";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=530e2052876442de';
-import {artifactVersion} from './artifact-links.js?v=530e2052876442de';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=530e2052876442de';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=530e2052876442de';
-import {createColoring} from './coloring.js?v=530e2052876442de';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=7c5b6f4cc56cf4de";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=7c5b6f4cc56cf4de";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=7c5b6f4cc56cf4de';
+import {artifactVersion} from './artifact-links.js?v=7c5b6f4cc56cf4de';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=7c5b6f4cc56cf4de';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=7c5b6f4cc56cf4de';
+import {createColoring} from './coloring.js?v=7c5b6f4cc56cf4de';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -240,7 +240,7 @@ function renderFileControls() {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
     if(!sending&&!unavailableWorkspace&&(!active||!latest?.files?.length)){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining,true);error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
+      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file),panelOpen=$('data-panel').open;if(active)pendingFiles=remaining;setFiles(remaining,true);$('data-panel').open=panelOpen;error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
     }
     return chip;
   }));
@@ -284,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=530e2052876442de';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=7c5b6f4cc56cf4de';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=530e2052876442de', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=7c5b6f4cc56cf4de', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -370,7 +370,12 @@ $('files').addEventListener('change', async event => {
     const selectedBytes=files.reduce((n,f)=>n+(f.bytes??Math.floor(f.data.length*3/4)-(f.data.endsWith('==')?2:f.data.endsWith('=')?1:0)),0);
     if(files.length+chosen.length>12||selectedBytes+chosen.reduce((n,f)=>n+f.size,0)>MAX_UPLOAD_BYTES)throw new Error('Choose up to 12 files, totaling at most '+MAX_UPLOAD_BYTES/1024/1024+' MiB.');
     const added=[];
-    for(const f of chosen){const bytes=new Uint8Array(await f.arrayBuffer());const text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error('Choose UTF-8 text files.');added.push({name:f.name,bytes:f.size,data:encode(bytes)});}
+    for(const f of chosen){
+      const bytes=new Uint8Array(await f.arrayBuffer());let text;
+      try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new Error(f.name+': this file is not valid UTF-8 text. Export or convert it to UTF-8 text before adding it. Binary files need a text export. Previously selected files are still available; none of this batch was added.');}
+      if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error(f.name+': this file contains binary or unsupported control characters. Export it as UTF-8 text before adding it. Previously selected files are still available; none of this batch was added.');
+      added.push({name:f.name,bytes:f.size,data:encode(bytes)});
+    }
     const combined=[...files,...added];if(active)pendingFiles=combined;setFiles(combined,true);$('data-panel').querySelector('summary').focus();
     error(null);
   } catch (err) { error(err); }
@@ -572,11 +577,14 @@ function preview(keepSelection=false) {
   const originalPoints=points;points=[];if(!keepSelection)selected.clear();
   const warnings=[];
   for (const file of files) {
-    if (!/\.(csv|tsv)$/i.test(file.name)) continue;
+    const normalizedPreview=keepSelection&&originalPoints.some(point=>point.fromEncoder&&point.file===file.name);
+    if (!/\.(csv|tsv)$/i.test(file.name)) {if(!normalizedPreview)warnings.push(file.name+': automatic browser preview supports CSV/TSV files. This file remains in the dataset; describe its format, columns and units in your question.');continue;}
     // Large datasets are preprocessed by the agent; avoid splitting millions of rows on the UI thread.
     if ((file.bytes??file.data.length*3/4)>16*1024*1024){warnings.push(file.name+': automatic preview of the original file is deferred above 16 MiB. The complete file remains in the dataset for analysis.');continue;}
     try{
       const parsed=parseTrajectoryTable(decode(file.data),file.name);points.push(...parsed.tracks);
+      if(parsed.missingColumns?.length&&!normalizedPreview)warnings.push(file.name+': not shown in this preview because its headers do not include '+parsed.missingColumns.join(', ')+'. Describe its columns and units in your question so the agent can normalize it. Do not rename pixel coordinates to x_um/y_um without converting to micrometers.');
+      if(parsed.tracks.length&&!parsed.hasTimestamps)warnings.push(file.name+': spatial preview only; no t_s timestamp column was found. Describe the time between frames and any gaps before asking for motion measurements.');
       if(parsed.skippedRows)warnings.push(file.name+': preview skipped '+parsed.skippedRows+' row'+(parsed.skippedRows===1?'':'s')+' with missing or invalid IDs, coordinates or timestamps.');
       if(parsed.duplicateTimes)warnings.push(file.name+': preview found '+parsed.duplicateTimes+' repeated track/timestamp pair'+(parsed.duplicateTimes===1?'':'s')+' across '+parsed.duplicateTimeTracks+' trajector'+(parsed.duplicateTimeTracks===1?'y':'ies')+'. All valid observations were retained. Check for duplicate frames or IDs reused across cells or movies; qualify reused IDs before interpreting combined paths.');
       if(parsed.reorderedTracks)warnings.push(file.name+': preview ordered observations by timestamp in '+parsed.reorderedTracks+' trajector'+(parsed.reorderedTracks===1?'y':'ies')+' whose source rows were out of order.');
