@@ -65,3 +65,4 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #trajectory-observation{width:64px;min-width:0;padding:4px;font-size:.8125rem}
 #trajectory-observation-go{padding:4px 8px;font-size:.8125rem}
 #trajectory-coordinates{font-size:.75rem;line-height:1.5;overflow-wrap:anywhere;color:var(--muted);margin:7px 0}
+@media(max-width:800px){.explorer:has(#projection-notice:not([hidden])){height:auto}.explorer:has(#projection-notice:not([hidden])) .plot-wrap{flex:none;height:55dvh}}

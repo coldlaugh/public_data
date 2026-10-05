@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=45c94fd18821daff";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=45c94fd18821daff";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=45c94fd18821daff';
-import {artifactVersion} from './artifact-links.js?v=45c94fd18821daff';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=45c94fd18821daff';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=45c94fd18821daff';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=45c94fd18821daff';
-import {createColoring} from './coloring.js?v=45c94fd18821daff';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=45c94fd18821daff';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=298016e6746302fa";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=298016e6746302fa";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=298016e6746302fa';
+import {artifactVersion} from './artifact-links.js?v=298016e6746302fa';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=298016e6746302fa';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=298016e6746302fa';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=298016e6746302fa';
+import {createColoring} from './coloring.js?v=298016e6746302fa';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=298016e6746302fa';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -190,7 +190,7 @@ function updateLegendScope(){
   updateSelectionScope();
   const note=$('color-legend').querySelector('small');if(!note||!pointColoring)return;
   const visible=filteredProjectionIds();
-  if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajectories in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
+  if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajector'+(visible.size===1?'y':'ies')+' in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
   else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
   note.textContent+=$('projection').value==='raw'?' · Selected trajectories use thicker lines and larger points; colors retain supplied values.':' · Selected points are enlarged and labelled; colors retain supplied values.';
 }
@@ -254,6 +254,7 @@ function renderFileControls() {
   }));
 }
 function resetEmbedding() {
+  $('projection-notice').hidden=true;$('projection-notice').textContent='';
   pointColoring=null;colorVersion='null';$('color-legend').hidden=true;
   autoViewVersion=null;selectedCardId=null;previewSelectedGroup=false;trajectoryGroup=[];$('trajectory-card').hidden=true;
   projectionGeneration++;pendingNativeSelection=null;legacyApi?.cancel();legacyApi=null;legacyVersion=null;legacyMode=false;
@@ -283,6 +284,8 @@ async function setProjection(method,settings=null) {
   pendingNativeSelection={request,get ids(){return selectionToSync;},set ids(ids){selectionToSync=ids;}};
   legacyApi?.cancel();
   if(method==='raw'){
+    $('projection-notice').hidden=true;
+    for(const option of $('projection').options)option.disabled=option.value!=='raw'&&!embedding;
     legacyMode=false;$('legacy-projector').hidden=true;$('plot').hidden=false;
     $('legacy-projector').parentElement.classList.remove('legacy');
     return setCompactProjection(method);
@@ -293,7 +296,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=45c94fd18821daff';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=298016e6746302fa';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -321,10 +324,12 @@ async function setProjection(method,settings=null) {
       if(selectionToSync!==null&&snapshot.selectionChanged)selectionToSync=snapshot.selectedTrackIds;
       const ids=selectionToSync??snapshot.selectedTrackIds;
       selected=new Set(ids);
+      $('projection-notice').textContent=snapshot.projectionNotice||'';$('projection-notice').hidden=!snapshot.projectionNotice;
+      for(const option of $('projection').options)option.disabled=!snapshot.availableProjections.includes(option.value);
       $('projection').value=snapshot.projection;
       updatePlotHelp(snapshot.projection);
       $('selection').textContent=selected.size?selected.size+' selected':'No trajectories selected';
-      $('plot-meta').textContent=snapshot.pointCount+' trajectories';
+      $('plot-meta').textContent=snapshot.pointCount+' trajector'+(snapshot.pointCount===1?'y':'ies');
       showTrajectory(ids);updateTrackFinder(true);updateLegendScope();
     };
     if(legacyVersion!==embeddingId){
@@ -345,7 +350,7 @@ async function setProjection(method,settings=null) {
     // Initial load starts in PCA; changing the native projection can clear its selection.
     legacyApi.select(selectionToSync??plan.ids);selectionToSync=null;pendingNativeSelection=null;
     legacyApi.color(pointColoring?[...pointColoring.colors]:null);
-    $('projection').value=method;updatePlotHelp(method);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;updateTrackFinder();updateLegendScope();
+    $('projection').value=result.projection;updatePlotHelp(result.projection);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;updateTrackFinder();updateLegendScope();
     return result;
   }catch(failure){
     if(request!==projectionGeneration)return {cancelled:true};
@@ -363,7 +368,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=45c94fd18821daff', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=298016e6746302fa', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
