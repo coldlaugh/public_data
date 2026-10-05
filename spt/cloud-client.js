@@ -5,14 +5,15 @@ export function createCloudApi({origin,fetchImpl=fetch,encode,now=()=>Date.now()
   if(!/^[0-9a-f]{32}$/.test(clientId||'')){clientId=crypto.randomUUID().replaceAll('-','');try{localStorage.setItem('spt.browser.identity',clientId);}catch{}}
   const digest=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');
   const decode=data=>{const text=atob(data),bytes=new Uint8Array(text.length);for(let i=0;i<text.length;i++)bytes[i]=text.charCodeAt(i);return bytes;};
+  function failure(message,status){const error=new Error(message);error.status=status;return error;}
   async function wire(path,data,auth){
     const response=await fetchImpl(new URL(path,origin),{method:data===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(auth?{Authorization:'Bearer '+auth.token}:{})},body:data===undefined?undefined:JSON.stringify(data)});
     const result=await response.json();
-    if(!response.ok){if(response.status===410){objects.clear();onExpiry(auth?.id);}throw new Error(result.error||'Request failed.');}
+    if(!response.ok){if(response.status===410){objects.clear();onExpiry(auth?.id);}throw failure(result.error||'Request failed.',response.status);}
     return result;
   }
   async function retry(path,data,auth){
-    let error;for(let i=0;i<3;i++){try{return await wire(path,data,auth);}catch(e){error=e;if(i<2)await new Promise(resolve=>setTimeout(resolve,500*(i+1)));}}throw error;
+    let error;for(let i=0;i<3;i++){try{return await wire(path,data,auth);}catch(e){error=e;if(e.status>=400&&e.status<500&&![408,409,429].includes(e.status))throw e;if(i<2)await new Promise(resolve=>setTimeout(resolve,500*(i+1)));}}throw error;
   }
   async function storedObject(path,auth){
     let response;
@@ -24,7 +25,7 @@ export function createCloudApi({origin,fetchImpl=fetch,encode,now=()=>Date.now()
         await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));continue;
       }
       if(response.ok)return response;
-      if(response.status===410){objects.clear();onExpiry(auth?.id);throw new Error('This session expired after seven days.');}
+      if(response.status===410){objects.clear();onExpiry(auth?.id);throw failure('This session expired after seven days.',410);}
       if(![404,409,429,500,502,503,504].includes(response.status)||attempt===2)break;
       await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));
     }
@@ -52,7 +53,7 @@ export function createCloudApi({origin,fetchImpl=fetch,encode,now=()=>Date.now()
       if(data.files?.length)return upload(path,data,auth);
     }
     const result=await wire(path,data,auth);
-    if(result.expiresAt&&result.expiresAt*1000<=now()){objects.clear();onExpiry(result.id);throw new Error('This session expired after seven days.');}
+    if(result.expiresAt&&result.expiresAt*1000<=now()){objects.clear();onExpiry(result.id);throw failure('This session expired after seven days.',410);}
     if(result.id&&result.files){
       const credential=auth||result;
       const current=new Set();

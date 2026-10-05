@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=0af18fdd96980684";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=0af18fdd96980684";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=0af18fdd96980684';
-import {artifactVersion} from './artifact-links.js?v=0af18fdd96980684';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=0af18fdd96980684';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=0af18fdd96980684';
-import {createColoring} from './coloring.js?v=0af18fdd96980684';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=71f0b625897f97a3";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=71f0b625897f97a3";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=71f0b625897f97a3';
+import {artifactVersion} from './artifact-links.js?v=71f0b625897f97a3';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=71f0b625897f97a3';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=71f0b625897f97a3';
+import {createColoring} from './coloring.js?v=71f0b625897f97a3';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -21,7 +21,7 @@ let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomU
 let sampleFile=null, sampleContext='';
 // Keep file references in this tab, without copying uploads into browser storage.
 const workspaceDrafts=new Map();
-let draftToRestore=null,loadingWorkspace=false;
+let draftToRestore=null,loadingWorkspace=false,expiredWorkspace=false,expiryDraftKey=null,missingRecoveryFiles=false;
 let connectionError=null;
 let projectorClientId;
 try { projectorClientId=sessionStorage.getItem('spt.projector.client'); } catch {}
@@ -55,20 +55,33 @@ function renderHistory() {
 }
 function workspaceKey(){return active?.id||'new:'+creationKey;}
 function saveWorkspaceDraft(){
-  const key=workspaceKey(),question=$('question').value;
+  const key=expiredWorkspace?expiryDraftKey:workspaceKey(),question=$('question').value;
   if(!active&&!question.trim()&&!files.length){workspaceDrafts.delete(key);return;}
   workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||'raw'):$('projection').value,
-    ...(!active?{files,sampleFile,sampleContext,creationKey}:{})});
+    ...(!active||expiredWorkspace?{files,sampleFile:sampleFile||(expiredWorkspace&&storedDemoContext()?files[0]:null),sampleContext:sampleContext||(expiredWorkspace?storedDemoContext():''),creationKey:expiredWorkspace?expiryDraftKey.slice(4):creationKey,missingFiles:expiredWorkspace?!files.length:missingRecoveryFiles}:{})});
 }
 function renderDraftHistory(){
   const drafts=[...workspaceDrafts].filter(([key])=>key.startsWith('new:')&&key!==workspaceKey());
   $('draft-section').hidden=!drafts.length;
   $('draft-list').replaceChildren(...drafts.map(([key,draft])=>{
     const button=document.createElement('button');button.disabled=sending;
-    button.textContent=draft.question.trim().slice(0,70)||draft.files.map(f=>f.name).join(', ');
-    button.onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace(draft);sidebar(false);};return button;
+    button.textContent=draft.question.trim().slice(0,70)||draft.files.map(f=>f.name).join(', ')||'Recovered analysis draft';
+    button.onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace(workspaceDrafts.get(key)||draft);sidebar(false);};return button;
   }));
 }
+function storedDemoContext(){return latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1]||'';}
+function resetExpiry(){expiredWorkspace=false;expiryDraftKey=null;$('expired-session').hidden=true;}
+function expireWorkspace(id){
+  if(!active||id!==active.id||expiredWorkspace)return;
+  expiredWorkspace=true;expiryDraftKey='new:'+crypto.randomUUID()+crypto.randomUUID();
+  // Keep the local draft and full files while treating server expiry as terminal.
+  saveWorkspaceDraft();clearTimeout(pollTimer);loadingWorkspace=false;
+  $('status').textContent='Analysis expired';$('cancel').hidden=true;$('expired-session').hidden=false;
+  $('expiry-explanation').textContent=files.length?'This analysis expired after seven days. The dataset and question currently in this tab can continue in a new analysis. Results already loaded here can still be downloaded.':'This analysis expired after seven days. Its stored files and results are unavailable. Continue with your current question, then re-upload the original files to analyze that dataset.';
+  $('continue-analysis').textContent=files.length?'Continue with this dataset':'Continue with your question';
+  $('send-hint').textContent='This expired analysis cannot accept follow-ups.';renderHistory();renderFileControls();
+}
+$('continue-analysis').onclick=()=>{if(sending||!expiredWorkspace)return;saveWorkspaceDraft();const draft=workspaceDrafts.get(expiryDraftKey);openUnsentWorkspace(draft);$('question').focus();};
 function clearConversation(){
   $('messages').replaceChildren();$('system-activity').replaceChildren();$('downloads').replaceChildren();
   $('status').textContent='Ready when you are';$('cancel').hidden=true;$('latest-message').hidden=true;
@@ -79,16 +92,17 @@ function restoreDraftSelection(draft){
 }
 function openUnsentWorkspace(draft=null){
   clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=false;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
+  resetExpiry();missingRecoveryFiles=!!draft?.missingFiles;
   creationKey=draft?.creationKey||crypto.randomUUID()+crypto.randomUUID();
   sampleFile=draft?.sampleFile||null;sampleContext=draft?.sampleContext||'';
   if(sampleContext)$('demo-context').replaceChildren(renderAnswer(sampleContext));
   resetEmbedding();clearConversation();setFiles(draft?.files||[]);$('question').value=draft?.question||'';
-  restoreDraftSelection(draft);history.replaceState(null,'','./#new=1');renderHistory();error(null);showJourney();
+  restoreDraftSelection(draft?.missingFiles?{...draft,selection:[]}:draft);history.replaceState(null,'','./#new=1');renderHistory();error(null);showJourney();
 }
 $('history').onchange=async()=>{
   if(sending)return;
   const job=savedJobs().find(j=>j.id===$('history').value);if(!job||job.id===active?.id)return;
-  saveWorkspaceDraft();clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
+  saveWorkspaceDraft();resetExpiry();missingRecoveryFiles=false;clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
   sampleFile=null;sampleContext='';draftToRestore=workspaceDrafts.get(job.id)||null;loadingWorkspace=true;
   $('question').value=draftToRestore?.question||'';resetEmbedding();clearConversation();setFiles([]);$('status').textContent='Loading analysis…';renderHistory();showJourney();
   history.replaceState(null,'','./#job='+job.id);await refresh();
@@ -108,11 +122,11 @@ function showJourney(){
   if(!active&&!sending)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
 }
 const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(sent,total)=>{$('status').textContent='Uploading '+Math.round(sent/Math.max(1,total)*100)+'%…';},onExpiry:id=>{
-  const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));renderHistory();
+  const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));expireWorkspace(id);renderHistory();
 }});
 async function api(path,data,auth=active){
   const result=await cloudApi(path,data,auth);
-  if(result.id===active?.id&&result.expiresAt){active.expiresAt=result.expiresAt;remember(active);}
+  if(result.id===active?.id&&!expiredWorkspace&&result.expiresAt){active.expiresAt=result.expiresAt;remember(active);}
   return result;
 }
 
@@ -174,7 +188,7 @@ function encode(bytes) {
 }
 function setFiles(value, preserveSelection=false) {
   const previousSelection=preserveSelection?[...selected]:[],previewWasOpen=!$('trajectory-card').hidden;
-  files = value;
+  files = value;if(files.length)missingRecoveryFiles=false;
   if(!active&&!sending)started=files.length>0;
   $('dataset-count').textContent=files.length?`${files.length} file${files.length===1?'':'s'}`:'Add trajectories';
   $('data-panel').open=!files.length;
@@ -187,17 +201,19 @@ function renderFileControls() {
   const committed=!!(active&&latest?.files?.length);
   $('new').disabled=$('history').disabled=sending;
   for(const button of document.querySelectorAll('#conversation-list button,#draft-list button'))button.disabled=sending;
-  $('send').disabled=sending||loadingWorkspace;
-  $('files').disabled=$('sample').disabled=sending||loadingWorkspace||committed;
+  $('send').disabled=sending||loadingWorkspace||expiredWorkspace;
+  $('continue-analysis').disabled=sending;
+  $('recovery-note').hidden=!missingRecoveryFiles;
+  $('files').disabled=$('sample').disabled=sending||loadingWorkspace||expiredWorkspace||committed;
   $('dataset-lock').hidden=!committed;
   const storedDemo=latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1];
   $('demo-info').hidden=!(sampleFile&&files.includes(sampleFile))&&!storedDemo;
   if(storedDemo)$('demo-context').replaceChildren(renderAnswer(storedDemo));
   $('file-list').replaceChildren(...files.map(file => {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
-    if(!sending&&(!active||!latest?.files?.length)){
+    if(!sending&&!expiredWorkspace&&(!active||!latest?.files?.length)){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining,true);error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
+      remove.onclick=()=>{if(sending||expiredWorkspace||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining,true);error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
     }
     return chip;
   }));
@@ -241,7 +257,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=0af18fdd96980684';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=71f0b625897f97a3';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -296,7 +312,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=0af18fdd96980684', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=71f0b625897f97a3', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -349,6 +365,7 @@ $('sample').onclick = () => loadSample().catch(error);
 $('new').onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace();sidebar(false);};
 async function submitQuestion(question) {
   if (sending) throw new Error('A request is already being sent.');
+  if(expiredWorkspace)throw new Error('Continue in a new analysis before sending another question.');
   if(loadingWorkspace)throw new Error('Wait for this analysis to load before sending a follow-up.');
   if (!question.trim()) throw new Error('Enter your question first.');
 
@@ -377,7 +394,10 @@ async function submitQuestion(question) {
     if($('question').value===question)$('question').value='';
     renderDraftHistory();error(null);await refresh();
     return {id: active.id, status: latest?.status};
-  } finally { if(!active)started=false;showJourney();sending = false; $('send').disabled = false;renderFileControls(); }
+  } catch(err){
+    if(!expiredWorkspace)$('status').textContent='Submission interrupted · your draft is preserved';
+    throw err;
+  } finally { if(!active)started=files.length>0;showJourney();sending = false; $('send').disabled = false;renderFileControls(); }
 }
 $('composer').onsubmit = event => { event.preventDefault(); submitQuestion($('question').value).catch(error); };
 $('cancel').onclick = async () => {
@@ -493,22 +513,22 @@ function render(job) {
 }
 async function refresh() {
   clearTimeout(pollTimer);
-  if (!active) return;
+  if (!active||expiredWorkspace) return;
   const target = active;
   try {
     const job = await api('/api/jobs/' + target.id, undefined, target);
-    if (active?.id === target.id) {
+    if (active?.id === target.id&&!expiredWorkspace) {
       if(connectionError&&$('error').textContent===connectionError)error(null);
       render(job);
       projectorBridge.tick(job,target).catch(()=>{}); // Cached result retries on next poll.
     }
   } catch(err) {
-    if(active?.id===target.id){
+    if(active?.id===target.id&&!expiredWorkspace){
       const message='Connection interrupted. Retrying; the analysis can continue on the desktop. '+err.message;
       error(new Error(message));connectionError=message;
     }
   }
-  finally { if (active) pollTimer = setTimeout(refresh, cloudPollDelay(latest,document.hidden)); }
+  finally { if (active&&!expiredWorkspace) pollTimer = setTimeout(refresh, cloudPollDelay(latest,document.hidden)); }
 }
 
 // Spatial preview is explicitly raw trajectories, never a fabricated embedding.
