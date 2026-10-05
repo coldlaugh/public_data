@@ -88,3 +88,4 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 .artifact-outcome{display:block;margin-top:6px;color:#755823;font-weight:500}
 
 #color-legend{overflow-wrap:anywhere}
+.markdown th,.markdown td{overflow-wrap:normal;word-break:normal}
