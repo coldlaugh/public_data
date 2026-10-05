@@ -1,4 +1,4 @@
-import {artifactVersion} from './artifact-links.js?v=c783f1ee2f831b51';
+import {artifactVersion} from './artifact-links.js?v=c50cc3c19ec43bde';
 
 // Stored ZIP records, UTF-8 names and CRC-32 per PKWARE APPNOTE 6.3.10.
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
@@ -56,7 +56,7 @@ export async function buildAnalysisBundle(job,view=null){
     await new Promise(resolve=>setTimeout(resolve,0));
   }
   const analysis={id:job.id,status:job.status,view,turns:(job.turns||[]).map(t=>({question:t.question,status:t.status,answer:t.answer,selection:t.selection}))};
-  const readme='SPT data and results bundle\n\ninputs/ contains the original uploaded datasets.\noutputs/ contains the latest result files. Follow the analysis README and script instructions there; dependencies are not bundled.\nearlier/ contains superseded files, grouped by response. These are historical versions.\nmanifest.json maps original names to archive paths and records byte counts, SHA-256 checksums and response versions. Some filenames are adjusted for portable extraction.\nanalysis.json records discussion, submitted trajectory selections, and current view settings at export time. UMAP and t-SNE are stochastic; recorded parameters do not guarantee the same layout when rerun.\n\nThis download preserves supplied files and discussion; it does not validate scientific inference.\n';
+  const readme='SPT data and results bundle\n\ninputs/ contains the original uploaded datasets.\noutputs/ contains the latest result files. Follow the analysis README and script instructions there; dependencies are not bundled.\nearlier/ contains superseded files, grouped by response. These are historical versions.\nmanifest.json maps original names to archive paths and records byte counts, SHA-256 checksums and response versions. Some filenames are adjusted for portable extraction.\nanalysis.json records discussion, submitted trajectory selections, and current view settings at export time. UMAP and t-SNE are stochastic; approximate PCA can sample points or dimensions. Recorded parameters do not guarantee the same layout when rerun.\n\nThis download preserves supplied files and discussion; it does not validate scientific inference.\n';
   entries.unshift({path:'manifest.json',bytes:encoder.encode(JSON.stringify(manifest,null,2)+'\n')},{path:'BUNDLE_README.txt',bytes:encoder.encode(readme)},{path:'analysis.json',bytes:encoder.encode(JSON.stringify(analysis,null,2)+'\n')});
   return {blob:zip(entries),filename:'spt-'+safeName(job.id)+'-data-results.zip',manifest};
 }
