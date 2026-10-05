@@ -44,8 +44,11 @@ export function parseTrajectoryTable(text,filename){
   const missingColumns=['track_id','x_um','y_um'].filter(name=>!columns.includes(name));
   if(missingColumns.length)return {tracks:[],skippedRows:0,missingColumns,...timing};
   if(['x_um','y_um','track_id','t_s'].some(name=>columns.filter(value=>value===name).length>1))throw new Error('Duplicate trajectory columns.');
-  const byId=new Map();let skippedRows=0;
+  const byId=new Map();let skippedRows=0,malformedRows=0;
   for(const row of rows.slice(1)){
+    // A misplaced delimiter can shift otherwise valid numbers into x/y/time.
+    // Do not guess the intended columns for an uneven record.
+    if(row.length!==columns.length){skippedRows++;malformedRows++;continue;}
     const x=numeric(row[ix]),y=numeric(row[iy]),time=it<0?null:numeric(row[it]),trackId=row[id]?.trim();
     if(!trackId||x===null||y===null||it>=0&&time===null){skippedRows++;continue;}
     if(!byId.has(trackId))byId.set(trackId,[]);
@@ -66,7 +69,7 @@ export function parseTrajectoryTable(text,filename){
     }
     return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time),...(columns.includes('z_um')?{hasZColumn:true}:{})};
   });
-  return {tracks,skippedRows,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':'comma',...timing};
+  return {tracks,skippedRows,malformedRows,columnCount:columns.length,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':'comma',...timing};
 }
 
 // Keep the control bounded without making any tracks inaccessible to a refined search.

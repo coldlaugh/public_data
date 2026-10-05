@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=016a7456a87253f2";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=016a7456a87253f2";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=016a7456a87253f2';
-import {artifactVersion} from './artifact-links.js?v=016a7456a87253f2';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=016a7456a87253f2';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=016a7456a87253f2';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=016a7456a87253f2';
-import {createColoring} from './coloring.js?v=016a7456a87253f2';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=016a7456a87253f2';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=40480860f90df44e";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=40480860f90df44e";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=40480860f90df44e';
+import {artifactVersion} from './artifact-links.js?v=40480860f90df44e';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=40480860f90df44e';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=40480860f90df44e';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=40480860f90df44e';
+import {createColoring} from './coloring.js?v=40480860f90df44e';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=40480860f90df44e';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -353,7 +353,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=016a7456a87253f2';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=40480860f90df44e';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -439,7 +439,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=016a7456a87253f2', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=40480860f90df44e', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -737,7 +737,9 @@ function preview(keepSelection=false) {
       if(parsed.missingColumns?.length&&!normalizedPreview)warnings.push(file.name+': not shown in this preview because its headers do not include '+parsed.missingColumns.join(', ')+'. Describe its columns and units in your question so the agent can normalize it. Do not rename pixel coordinates to x_um/y_um without converting to micrometers.');
       if(parsed.tracks.length&&!parsed.hasTimestamps)warnings.push(file.name+': spatial preview only; no t_s timestamp column was found. Describe the time between frames and any gaps before asking for motion measurements.');
       if(parsed.tracks.some(track=>track.hasZColumn))warnings.push(file.name+': z_um is present. This preview and its animation show only the XY projection; motion along z is not displayed. Ask for XYZ measurements to include z in the analysis.');
-      if(parsed.skippedRows)warnings.push(file.name+': preview skipped '+parsed.skippedRows+' row'+(parsed.skippedRows===1?'':'s')+' with missing or invalid IDs, coordinates or timestamps.');
+      if(parsed.malformedRows)warnings.push(file.name+': preview skipped '+parsed.malformedRows+' row'+(parsed.malformedRows===1?'':'s')+' whose field count does not match the '+parsed.columnCount+' column headers. Check for extra or missing separators, and quote text that contains a separator.');
+      const invalidRows=parsed.skippedRows-(parsed.malformedRows||0);
+      if(invalidRows)warnings.push(file.name+': preview skipped '+invalidRows+' row'+(invalidRows===1?'':'s')+' with missing or invalid IDs, coordinates or timestamps.');
       if(parsed.duplicateTimes)warnings.push(file.name+': preview found '+parsed.duplicateTimes+' repeated track/timestamp pair'+(parsed.duplicateTimes===1?'':'s')+' across '+parsed.duplicateTimeTracks+' trajector'+(parsed.duplicateTimeTracks===1?'y':'ies')+'. All valid observations were retained. Check for duplicate frames or IDs reused across cells or movies; qualify reused IDs before interpreting combined paths.');
       if(parsed.reorderedTracks)warnings.push(file.name+': preview ordered observations by timestamp in '+parsed.reorderedTracks+' trajector'+(parsed.reorderedTracks===1?'y':'ies')+' whose source rows were out of order.');
     }catch(failure){warnings.push(file.name+': spatial preview unavailable. '+failure.message);}
