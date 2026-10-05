@@ -44,3 +44,5 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #expired-session{flex:none;padding:12px 20px;background:#fff7e9;border-block:1px solid #eddbc1;font-size:.875rem;line-height:1.5}#expired-session p{margin:0 0 8px;overflow-wrap:anywhere}#recovery-note{flex:none;margin:0;padding:12px 20px;background:#fff7e9;overflow-wrap:anywhere}
 
 #expired-session button{max-width:100%;white-space:normal;overflow-wrap:anywhere;margin:0 8px 4px 0}
+
+#missing-analysis{flex:none;padding:16px 20px;background:#fff7e9;border-block:1px solid #eddbc1;font-size:.875rem;line-height:1.5}#missing-analysis h2{font-size:1rem;font-weight:500;line-height:1.4;margin:0 0 8px}#missing-analysis p{margin:0 0 12px;overflow-wrap:anywhere}#missing-analysis button{max-width:100%;white-space:normal;overflow-wrap:anywhere}.onboarding #missing-analysis{border:1px solid #eddbc1;border-radius:8px;margin-bottom:16px}.missing-link #welcome>h1,.missing-link #welcome>p{display:none}
