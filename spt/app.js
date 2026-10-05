@@ -185,7 +185,7 @@ async function setProjection(method) {
     const result=await legacyApi.project(method);
     if(request!==projectionGeneration||result.cancelled)return {cancelled:true};
     legacyApi.color(pointColoring?[...pointColoring.colors]:null);
-    $('projection').value=method;$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;
+    $('projection').value=method;updatePlotHelp(method);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;
     return result;
   }catch(failure){
     if(request!==projectionGeneration)return {cancelled:true};
