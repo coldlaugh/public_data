@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=fda998162b4ca5a9";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=fda998162b4ca5a9";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=fda998162b4ca5a9';
-import {artifactVersion} from './artifact-links.js?v=fda998162b4ca5a9';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=fda998162b4ca5a9';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=fda998162b4ca5a9';
-import {createColoring} from './coloring.js?v=fda998162b4ca5a9';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=b78950ea2ce71f51";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=b78950ea2ce71f51";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=b78950ea2ce71f51';
+import {artifactVersion} from './artifact-links.js?v=b78950ea2ce71f51';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=b78950ea2ce71f51';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=b78950ea2ce71f51';
+import {createColoring} from './coloring.js?v=b78950ea2ce71f51';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -19,6 +19,9 @@ let pointColoring=null,colorVersion='null';
 let projectionViewRevision=null,projectionViewIds=null,viewSelectionError=null,rawSelectionError=null;
 let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomUUID() + crypto.randomUUID();
 let sampleFile=null, sampleContext='';
+// Keep file references in this tab, without copying uploads into browser storage.
+const workspaceDrafts=new Map();
+let draftToRestore=null,loadingWorkspace=false;
 let connectionError=null;
 let projectorClientId;
 try { projectorClientId=sessionStorage.getItem('spt.projector.client'); } catch {}
@@ -47,9 +50,49 @@ function renderHistory() {
   const options = [Object.assign(document.createElement('option'), {value:'', textContent:'Choose an analysis'})];
   for (const job of savedJobs().reverse()) options.push(Object.assign(document.createElement('option'), {value:job.id, textContent:job.id.slice(0,10)}));
   $('history').replaceChildren(...options); $('history').value = active?.id || '';
-  $('conversation-list').replaceChildren(...savedJobs().reverse().map(job=>{const b=document.createElement('button');b.textContent=job.title||'Analysis '+job.id.slice(0,10);b.className=active?.id===job.id?'current':'';b.onclick=()=>{$('history').value=job.id;$('history').onchange();sidebar(false);};return b;}));
+  $('conversation-list').replaceChildren(...savedJobs().reverse().map(job=>{const b=document.createElement('button');b.textContent=job.title||'Analysis '+job.id.slice(0,10);b.className=active?.id===job.id?'current':'';b.disabled=sending;b.onclick=()=>{$('history').value=job.id;$('history').onchange();sidebar(false);};return b;}));
+  renderDraftHistory();
 }
-$('history').onchange = async () => { const job=savedJobs().find(j=>j.id===$('history').value); if(!job)return; clearTimeout(pollTimer); active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;resetEmbedding();setFiles([]);showJourney();history.replaceState(null,'','./#job='+job.id); await refresh(); };
+function workspaceKey(){return active?.id||'new:'+creationKey;}
+function saveWorkspaceDraft(){
+  const key=workspaceKey(),question=$('question').value;
+  if(!active&&!question.trim()&&!files.length){workspaceDrafts.delete(key);return;}
+  workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||'raw'):$('projection').value,
+    ...(!active?{files,sampleFile,sampleContext,creationKey}:{})});
+}
+function renderDraftHistory(){
+  const drafts=[...workspaceDrafts].filter(([key])=>key.startsWith('new:')&&key!==workspaceKey());
+  $('draft-section').hidden=!drafts.length;
+  $('draft-list').replaceChildren(...drafts.map(([key,draft])=>{
+    const button=document.createElement('button');button.disabled=sending;
+    button.textContent=draft.question.trim().slice(0,70)||draft.files.map(f=>f.name).join(', ');
+    button.onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace(draft);sidebar(false);};return button;
+  }));
+}
+function clearConversation(){
+  $('messages').replaceChildren();$('system-activity').replaceChildren();$('downloads').replaceChildren();
+  $('status').textContent='Ready when you are';$('cancel').hidden=true;$('latest-message').hidden=true;
+  $('result-count').textContent='No outputs yet';$('results-panel').open=false;
+}
+function restoreDraftSelection(draft){
+  selected=new Set(draft?.selection||[]);draw();syncTrackChoice();showTrajectory([...selected]);
+}
+function openUnsentWorkspace(draft=null){
+  clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=false;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
+  creationKey=draft?.creationKey||crypto.randomUUID()+crypto.randomUUID();
+  sampleFile=draft?.sampleFile||null;sampleContext=draft?.sampleContext||'';
+  if(sampleContext)$('demo-context').replaceChildren(renderAnswer(sampleContext));
+  resetEmbedding();clearConversation();setFiles(draft?.files||[]);$('question').value=draft?.question||'';
+  restoreDraftSelection(draft);history.replaceState(null,'','./#new=1');renderHistory();error(null);showJourney();
+}
+$('history').onchange=async()=>{
+  if(sending)return;
+  const job=savedJobs().find(j=>j.id===$('history').value);if(!job||job.id===active?.id)return;
+  saveWorkspaceDraft();clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
+  sampleFile=null;sampleContext='';draftToRestore=workspaceDrafts.get(job.id)||null;loadingWorkspace=true;
+  $('question').value=draftToRestore?.question||'';resetEmbedding();clearConversation();setFiles([]);$('status').textContent='Loading analysis…';renderHistory();showJourney();
+  history.replaceState(null,'','./#job='+job.id);await refresh();
+};
 function sidebar(open){
   const panel=$('session-sidebar'),wasOpen=!panel.hidden,hadFocus=panel.contains(document.activeElement);
   panel.hidden=!open;$('toggle-sidebar').setAttribute('aria-expanded',String(open));
@@ -61,7 +104,8 @@ function showJourney(){
   const talking=!!active||started;main.classList.toggle('onboarding',!talking);$('welcome').hidden=talking;
   const destination=talking?$('data-panel'):$('welcome-upload');
   if($('upload-box').parentElement!==destination)destination.append($('upload-box'));
-  if(!talking){panels(true,true);$('send-hint').textContent='Include position units and time between frames, or try demo data.';}
+  if(!talking)panels(true,true);
+  if(!active&&!sending)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
 }
 const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(sent,total)=>{$('status').textContent='Uploading '+Math.round(sent/Math.max(1,total)*100)+'%…';},onExpiry:id=>{
   const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));renderHistory();
@@ -141,7 +185,10 @@ function setFiles(value, preserveSelection=false) {
 }
 function renderFileControls() {
   const committed=!!(active&&latest?.files?.length);
-  $('files').disabled=$('sample').disabled=sending||committed;
+  $('new').disabled=$('history').disabled=sending;
+  for(const button of document.querySelectorAll('#conversation-list button,#draft-list button'))button.disabled=sending;
+  $('send').disabled=sending||loadingWorkspace;
+  $('files').disabled=$('sample').disabled=sending||loadingWorkspace||committed;
   $('dataset-lock').hidden=!committed;
   const storedDemo=latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1];
   $('demo-info').hidden=!(sampleFile&&files.includes(sampleFile))&&!storedDemo;
@@ -194,7 +241,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=fda998162b4ca5a9';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=b78950ea2ce71f51';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -247,7 +294,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=fda998162b4ca5a9', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=b78950ea2ce71f51', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -286,9 +333,9 @@ $('files').addEventListener('change', async event => {
 async function loadSample(stageQuestion=true) {
   if(sending&&stageQuestion)throw new Error('Wait for your request to finish sending.');
   if (files.length) throw new Error('Start a new analysis before replacing your dataset.');
-  const questionBefore=$('question').value,jobBefore=active?.id;
+  const questionBefore=$('question').value,workspaceBefore=workspaceKey();
   const sample = await api('/api/sample', undefined, null);
-  if(active?.id!==jobBefore||files.length)throw new Error('The dataset changed while the demo was loading. Try again.');
+  if(workspaceKey()!==workspaceBefore||files.length)throw new Error('The dataset changed while the demo was loading. Try again.');
   sampleFile=sample.files[0];sampleContext=sample.question.split('## The question')[0];
   $('demo-context').replaceChildren(renderAnswer(sampleContext));
   if(active)pendingFiles=sample.files;setFiles(sample.files);
@@ -297,21 +344,13 @@ async function loadSample(stageQuestion=true) {
   return {...sample,questionStaged:stageQuestion};
 }
 $('sample').onclick = () => loadSample().catch(error);
-$('new').onclick = () => {
-  clearTimeout(pollTimer); active = null; latest = null; lastSignature = '';started=false;pendingFiles=[];sidebar(false);
-  creationKey = crypto.randomUUID() + crypto.randomUUID();
-  resetEmbedding();
-  setFiles([]); $('messages').replaceChildren(); $('system-activity').replaceChildren();
-  $('status').textContent = 'Ready when you are'; $('question').value = '';
-  $('files').disabled = $('sample').disabled = false;
-  $('downloads').replaceChildren(); $('cancel').hidden = true;
-  $('result-count').textContent='No outputs yet';$('results-panel').open=false;
-  history.replaceState(null, '', './#new=1'); renderHistory(); error(null);showJourney();
-};
+$('new').onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace();sidebar(false);};
 async function submitQuestion(question) {
   if (sending) throw new Error('A request is already being sent.');
+  if(loadingWorkspace)throw new Error('Wait for this analysis to load before sending a follow-up.');
   if (!question.trim()) throw new Error('Enter your question first.');
 
+  const originKey=workspaceKey();
   sending = true; $('send').disabled = true;renderFileControls();
   try {
     let q = question.trim();
@@ -332,7 +371,9 @@ async function submitQuestion(question) {
       await api(`/api/jobs/${active.id}/messages`, {question: q, selection:pendingFollowup.selection,requestId: pendingFollowup.requestId,...(pendingFiles.length?{files:pendingFiles}:{})});
       pendingFollowup = null;pendingFiles=[];
     }
-    $('question').value = ''; error(null); await refresh();
+    workspaceDrafts.delete(originKey);
+    if($('question').value===question)$('question').value='';
+    renderDraftHistory();error(null);await refresh();
     return {id: active.id, status: latest?.status};
   } finally { if(!active)started=false;showJourney();sending = false; $('send').disabled = false;renderFileControls(); }
 }
@@ -346,7 +387,7 @@ function message(author, text, turn=Infinity) {
   block.append(label,author==='SPT AGENT'?renderAnswer(text,href=>resolveArtifact(href,turn),openArtifact):document.createTextNode(text)); return block;
 }
 function render(job) {
-  latest = job;showJourney();
+  latest = job;loadingWorkspace=false;showJourney();
   const status = {queued:'Queued · waiting for the desktop', running:'Analyzing your dataset',
     completed:'Analysis complete',failed:'Analysis needs attention',cancelled:'Analysis stopped',
     cancelling:'Stopping analysis',interrupted:'Desktop connection interrupted'};
@@ -355,6 +396,8 @@ function render(job) {
   renderFileControls();
   $('send-hint').textContent = ['running','queued'].includes(job.status) ? 'Follow-ups will run after the current analysis.' : 'You can return to this conversation from this browser.';
   if (!files.length&&job.files.length) setFiles(job.files);
+  const restoredDraft=draftToRestore;draftToRestore=null;
+  if(restoredDraft)selected=new Set(restoredDraft.selection);
   const currentTurn=job.turns.findIndex(t=>t.status==='running');
   const projectionStage=job.events.filter(e=>e.kind==='progress'&&e.turn===currentTurn).at(-1)?.stage;
   const waiting=!embedding&&!points.length&&(['running','queued'].includes(job.status)||projectionStage==='embeddings_unavailable')&&job.files.length>0;
@@ -379,10 +422,14 @@ function render(job) {
         $('embedding-info').textContent=candidate.points.length+' × '+candidate.points[0].vector.length+' encoder vectors';
         $('projection-progress').hidden=true;
         legacyVersion=null;autoViewVersion=candidate.version;embeddingId=candidate.version;
-        setProjection('umap').catch(error);
+        setProjection(restoredDraft?.projection||'umap').catch(error);
       }
       embeddingArtifactsVersion=vectorVersion;
     }catch(err){error(err);}
+  }
+  if(restoredDraft){
+    if(!embedding)$('projection').value='raw';
+    restoreDraftSelection(restoredDraft);
   }
   const nextColorVersion=JSON.stringify(job.pointColoring||null);
   if(nextColorVersion!==colorVersion){try{setColoring(job.pointColoring);colorVersion=nextColorVersion;}catch(err){error(err);}}
@@ -650,7 +697,7 @@ $('close-trajectory').onclick=closeTrajectory;
 $('trajectory-card').onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeTrajectory();}};
 $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajectory-play').textContent=trajectoryRunning?'Pause':'Play';clearTimeout(trajectoryTimer);if(trajectoryRunning)animateTrajectory();};
 renderHistory();showJourney();
-if(active)refresh();else {
+if(active){loadingWorkspace=true;renderFileControls();refresh();}else {
   draw();
   if(fragment.has('job'))error(new Error('This analysis is not available in this browser. Return to the browser where you started it, or start a new analysis here.'));
 }

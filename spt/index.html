@@ -3,12 +3,12 @@
 <head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
-<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=fda998162b4ca5a9"><link rel="stylesheet" href="./style.css?v=fda998162b4ca5a9">
-<script src="./app.js?v=fda998162b4ca5a9" type="module"></script>
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=b78950ea2ce71f51"><link rel="stylesheet" href="./style.css?v=b78950ea2ce71f51">
+<script src="./app.js?v=b78950ea2ce71f51" type="module"></script>
 </head>
 <body>
 <header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
-<aside id="session-sidebar" aria-label="Conversations" hidden><div class="sidebar-head"><h2>Conversations</h2><button id="close-sidebar" class="quiet" aria-label="Close conversation sidebar">×</button></div><button id="new">New analysis</button><label for="history" class="history-label">Recent analyses</label><select id="history" aria-label="Recent analyses"><option value="">Choose an analysis</option></select><div id="conversation-list"></div></aside>
+<aside id="session-sidebar" aria-label="Conversations" hidden><div class="sidebar-head"><h2>Conversations</h2><button id="close-sidebar" class="quiet" aria-label="Close conversation sidebar">×</button></div><button id="new">New analysis</button><label for="history" class="history-label">Recent analyses</label><select id="history" aria-label="Recent analyses"><option value="">Choose an analysis</option></select><div id="conversation-list"></div><section id="draft-section" hidden><h3>Unsent analyses</h3><div id="draft-list"></div></section><p class="muted draft-note">Unsent questions and datasets stay in this open tab while you switch analyses. Download results before closing; drafts are lost on reload or close.</p></aside>
 <main class="onboarding">
 <section class="explorer" id="explorer" aria-label="Dataset explorer">
 <div class="panel-head"><h1>Projector</h1><button id="hide-data" class="quiet" aria-label="Hide dataset panel">Hide</button></div>
