@@ -29,7 +29,7 @@ export function createCloudApi({origin,fetchImpl=fetch,encode,now=()=>Date.now()
       if(![404,409,429,500,502,503,504].includes(response.status)||attempt===2)break;
       await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));
     }
-    throw new Error('Unable to load stored artifact.');
+    const error=failure('Unable to load stored artifact.',response?.status);error.resource='object';throw error;
   }
   async function upload(path,data,auth){
     const metadata=[];let total=0;

@@ -42,3 +42,5 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #draft-section h3{font-size:.85rem;color:var(--muted);margin:24px 0 10px}#session-sidebar .draft-note{font-size:.78rem;line-height:1.5;margin-top:24px}
 
 #expired-session{flex:none;padding:12px 20px;background:#fff7e9;border-block:1px solid #eddbc1;font-size:.875rem;line-height:1.5}#expired-session p{margin:0 0 8px;overflow-wrap:anywhere}#recovery-note{flex:none;margin:0;padding:12px 20px;background:#fff7e9;overflow-wrap:anywhere}
+
+#expired-session button{max-width:100%;white-space:normal;overflow-wrap:anywhere;margin:0 8px 4px 0}

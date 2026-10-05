@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=71f0b625897f97a3";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=71f0b625897f97a3";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=71f0b625897f97a3';
-import {artifactVersion} from './artifact-links.js?v=71f0b625897f97a3';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=71f0b625897f97a3';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=71f0b625897f97a3';
-import {createColoring} from './coloring.js?v=71f0b625897f97a3';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=70df6298357665af";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=70df6298357665af";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=70df6298357665af';
+import {artifactVersion} from './artifact-links.js?v=70df6298357665af';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=70df6298357665af';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=70df6298357665af';
+import {createColoring} from './coloring.js?v=70df6298357665af';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -21,7 +21,7 @@ let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomU
 let sampleFile=null, sampleContext='';
 // Keep file references in this tab, without copying uploads into browser storage.
 const workspaceDrafts=new Map();
-let draftToRestore=null,loadingWorkspace=false,expiredWorkspace=false,expiryDraftKey=null,missingRecoveryFiles=false;
+let draftToRestore=null,loadingWorkspace=false,unavailableWorkspace=false,recoveryDraftKey=null,missingRecoveryFiles=false;
 let connectionError=null;
 let projectorClientId;
 try { projectorClientId=sessionStorage.getItem('spt.projector.client'); } catch {}
@@ -55,10 +55,10 @@ function renderHistory() {
 }
 function workspaceKey(){return active?.id||'new:'+creationKey;}
 function saveWorkspaceDraft(){
-  const key=expiredWorkspace?expiryDraftKey:workspaceKey(),question=$('question').value;
+  const key=unavailableWorkspace?recoveryDraftKey:workspaceKey(),question=$('question').value;
   if(!active&&!question.trim()&&!files.length){workspaceDrafts.delete(key);return;}
-  workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||'raw'):$('projection').value,
-    ...(!active||expiredWorkspace?{files,sampleFile:sampleFile||(expiredWorkspace&&storedDemoContext()?files[0]:null),sampleContext:sampleContext||(expiredWorkspace?storedDemoContext():''),creationKey:expiredWorkspace?expiryDraftKey.slice(4):creationKey,missingFiles:expiredWorkspace?!files.length:missingRecoveryFiles}:{})});
+  workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[...selected]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||$('projection').value):$('projection').value,
+    ...(!active||unavailableWorkspace?{files,sampleFile:sampleFile||(unavailableWorkspace&&storedDemoContext()?files[0]:null),sampleContext:sampleContext||(unavailableWorkspace?storedDemoContext():''),creationKey:unavailableWorkspace?recoveryDraftKey.slice(4):creationKey,missingFiles:unavailableWorkspace?!files.length:missingRecoveryFiles}:{})});
 }
 function renderDraftHistory(){
   const drafts=[...workspaceDrafts].filter(([key])=>key.startsWith('new:')&&key!==workspaceKey());
@@ -70,18 +70,34 @@ function renderDraftHistory(){
   }));
 }
 function storedDemoContext(){return latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1]||'';}
-function resetExpiry(){expiredWorkspace=false;expiryDraftKey=null;$('expired-session').hidden=true;}
-function expireWorkspace(id){
-  if(!active||id!==active.id||expiredWorkspace)return;
-  expiredWorkspace=true;expiryDraftKey='new:'+crypto.randomUUID()+crypto.randomUUID();
-  // Keep the local draft and full files while treating server expiry as terminal.
-  saveWorkspaceDraft();clearTimeout(pollTimer);loadingWorkspace=false;
-  $('status').textContent='Analysis expired';$('cancel').hidden=true;$('expired-session').hidden=false;
-  $('expiry-explanation').textContent=files.length?'This analysis expired after seven days. The dataset and question currently in this tab can continue in a new analysis. Results already loaded here can still be downloaded.':'This analysis expired after seven days. Its stored files and results are unavailable. Continue with your current question, then re-upload the original files to analyze that dataset.';
-  $('continue-analysis').textContent=files.length?'Continue with this dataset':'Continue with your question';
-  $('send-hint').textContent='This expired analysis cannot accept follow-ups.';renderHistory();renderFileControls();
+function resetUnavailable(){unavailableWorkspace=false;recoveryDraftKey=null;$('expired-session').hidden=true;}
+function expireWorkspace(id){makeWorkspaceUnavailable(id,'expired');}
+function handleAnalysisFailure(path,err,auth){
+  if(!auth?.id)return;
+  const jobPath='/api/jobs/'+auth.id;
+  const missingSession=err.status===404&&err.resource!=='object'&&[jobPath,jobPath+'/messages',jobPath+'/prepare',jobPath+'/cancel'].includes(path);
+  if(err.status===401||err.status===403||missingSession)makeWorkspaceUnavailable(auth.id,missingSession?'missing':'access');
 }
-$('continue-analysis').onclick=()=>{if(sending||!expiredWorkspace)return;saveWorkspaceDraft();const draft=workspaceDrafts.get(expiryDraftKey);openUnsentWorkspace(draft);$('question').focus();};
+function makeWorkspaceUnavailable(id,reason){
+  if(!active||id!==active.id||unavailableWorkspace)return;
+  unavailableWorkspace=true;recoveryDraftKey||='new:'+crypto.randomUUID()+crypto.randomUUID();
+  // Keep local work while pausing reads that require access recovery.
+  saveWorkspaceDraft();clearTimeout(pollTimer);loadingWorkspace=false;
+  if(connectionError&&$('error').textContent===connectionError)error(null);connectionError=null;
+  const expired=reason==='expired';
+  $('status').textContent=expired?'Analysis expired':'Analysis unavailable';$('cancel').hidden=true;$('expired-session').hidden=false;
+  const explanation=expired?'This analysis expired after seven days.':'This analysis cannot be opened with the access saved in this browser. Try again, or return to the browser or link where you started it.';
+  $('expiry-explanation').textContent=explanation+(files.length?' The dataset and question currently in this tab can continue in a new analysis. Results already loaded here can still be downloaded.':' Continue with your current question, then re-upload the original files to analyze that dataset.');
+  $('continue-analysis').textContent=files.length?'Continue with this dataset':'Continue with your question';
+  $('retry-analysis').hidden=expired;
+  $('send-hint').textContent='This unavailable analysis cannot accept follow-ups.';renderHistory();renderFileControls();
+}
+$('retry-analysis').onclick=async()=>{
+  if(sending||!active||!unavailableWorkspace)return;
+  saveWorkspaceDraft();unavailableWorkspace=false;loadingWorkspace=true;$('expired-session').hidden=true;error(null);
+  $('status').textContent='Loading analysis…';renderFileControls();await refresh();
+};
+$('continue-analysis').onclick=()=>{if(sending||!unavailableWorkspace)return;saveWorkspaceDraft();const draft=workspaceDrafts.get(recoveryDraftKey);openUnsentWorkspace(draft);$('question').focus();};
 function clearConversation(){
   $('messages').replaceChildren();$('system-activity').replaceChildren();$('downloads').replaceChildren();
   $('status').textContent='Ready when you are';$('cancel').hidden=true;$('latest-message').hidden=true;
@@ -92,7 +108,7 @@ function restoreDraftSelection(draft){
 }
 function openUnsentWorkspace(draft=null){
   clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=false;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
-  resetExpiry();missingRecoveryFiles=!!draft?.missingFiles;
+  resetUnavailable();missingRecoveryFiles=!!draft?.missingFiles;
   creationKey=draft?.creationKey||crypto.randomUUID()+crypto.randomUUID();
   sampleFile=draft?.sampleFile||null;sampleContext=draft?.sampleContext||'';
   if(sampleContext)$('demo-context').replaceChildren(renderAnswer(sampleContext));
@@ -102,7 +118,7 @@ function openUnsentWorkspace(draft=null){
 $('history').onchange=async()=>{
   if(sending)return;
   const job=savedJobs().find(j=>j.id===$('history').value);if(!job||job.id===active?.id)return;
-  saveWorkspaceDraft();resetExpiry();missingRecoveryFiles=false;clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
+  saveWorkspaceDraft();resetUnavailable();missingRecoveryFiles=false;clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
   sampleFile=null;sampleContext='';draftToRestore=workspaceDrafts.get(job.id)||null;loadingWorkspace=true;
   $('question').value=draftToRestore?.question||'';resetEmbedding();clearConversation();setFiles([]);$('status').textContent='Loading analysis…';renderHistory();showJourney();
   history.replaceState(null,'','./#job='+job.id);await refresh();
@@ -125,8 +141,9 @@ const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(se
   const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));expireWorkspace(id);renderHistory();
 }});
 async function api(path,data,auth=active){
-  const result=await cloudApi(path,data,auth);
-  if(result.id===active?.id&&!expiredWorkspace&&result.expiresAt){active.expiresAt=result.expiresAt;remember(active);}
+  let result;
+  try{result=await cloudApi(path,data,auth);}catch(err){handleAnalysisFailure(path,err,auth);throw err;}
+  if(result.id===active?.id&&!unavailableWorkspace&&result.expiresAt){active.expiresAt=result.expiresAt;remember(active);}
   return result;
 }
 
@@ -201,19 +218,19 @@ function renderFileControls() {
   const committed=!!(active&&latest?.files?.length);
   $('new').disabled=$('history').disabled=sending;
   for(const button of document.querySelectorAll('#conversation-list button,#draft-list button'))button.disabled=sending;
-  $('send').disabled=sending||loadingWorkspace||expiredWorkspace;
-  $('continue-analysis').disabled=sending;
+  $('send').disabled=sending||loadingWorkspace||unavailableWorkspace;
+  $('continue-analysis').disabled=$('retry-analysis').disabled=sending;
   $('recovery-note').hidden=!missingRecoveryFiles;
-  $('files').disabled=$('sample').disabled=sending||loadingWorkspace||expiredWorkspace||committed;
+  $('files').disabled=$('sample').disabled=sending||loadingWorkspace||unavailableWorkspace||committed;
   $('dataset-lock').hidden=!committed;
   const storedDemo=latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1];
   $('demo-info').hidden=!(sampleFile&&files.includes(sampleFile))&&!storedDemo;
   if(storedDemo)$('demo-context').replaceChildren(renderAnswer(storedDemo));
   $('file-list').replaceChildren(...files.map(file => {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
-    if(!sending&&!expiredWorkspace&&(!active||!latest?.files?.length)){
+    if(!sending&&!unavailableWorkspace&&(!active||!latest?.files?.length)){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||expiredWorkspace||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining,true);error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
+      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining,true);error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
     }
     return chip;
   }));
@@ -257,7 +274,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=71f0b625897f97a3';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=70df6298357665af';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -312,7 +329,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=71f0b625897f97a3', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=70df6298357665af', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -365,7 +382,7 @@ $('sample').onclick = () => loadSample().catch(error);
 $('new').onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace();sidebar(false);};
 async function submitQuestion(question) {
   if (sending) throw new Error('A request is already being sent.');
-  if(expiredWorkspace)throw new Error('Continue in a new analysis before sending another question.');
+  if(unavailableWorkspace)throw new Error('Continue in a new analysis before sending another question.');
   if(loadingWorkspace)throw new Error('Wait for this analysis to load before sending a follow-up.');
   if (!question.trim()) throw new Error('Enter your question first.');
 
@@ -395,7 +412,7 @@ async function submitQuestion(question) {
     renderDraftHistory();error(null);await refresh();
     return {id: active.id, status: latest?.status};
   } catch(err){
-    if(!expiredWorkspace)$('status').textContent='Submission interrupted · your draft is preserved';
+    if(!unavailableWorkspace)$('status').textContent='Submission interrupted · your draft is preserved';
     throw err;
   } finally { if(!active)started=files.length>0;showJourney();sending = false; $('send').disabled = false;renderFileControls(); }
 }
@@ -409,6 +426,7 @@ function message(author, text, turn=Infinity) {
   block.append(label,author==='SPT AGENT'?renderAnswer(text,href=>resolveArtifact(href,turn),openArtifact):document.createTextNode(text)); return block;
 }
 function render(job) {
+  if(recoveryDraftKey){workspaceDrafts.delete(recoveryDraftKey);resetUnavailable();renderDraftHistory();}
   latest = job;loadingWorkspace=false;showJourney();
   const status = {queued:'Queued · waiting for the desktop', running:'Analyzing your dataset',
     completed:'Analysis complete',failed:'Analysis needs attention',cancelled:'Analysis stopped',
@@ -513,22 +531,22 @@ function render(job) {
 }
 async function refresh() {
   clearTimeout(pollTimer);
-  if (!active||expiredWorkspace) return;
+  if (!active||unavailableWorkspace) return;
   const target = active;
   try {
     const job = await api('/api/jobs/' + target.id, undefined, target);
-    if (active?.id === target.id&&!expiredWorkspace) {
+    if (active?.id === target.id&&!unavailableWorkspace) {
       if(connectionError&&$('error').textContent===connectionError)error(null);
       render(job);
       projectorBridge.tick(job,target).catch(()=>{}); // Cached result retries on next poll.
     }
   } catch(err) {
-    if(active?.id===target.id&&!expiredWorkspace){
-      const message='Connection interrupted. Retrying; the analysis can continue on the desktop. '+err.message;
+    if(active?.id===target.id&&!unavailableWorkspace){
+      const message='Refresh interrupted. Retrying; your draft is preserved. '+err.message;
       error(new Error(message));connectionError=message;
     }
   }
-  finally { if (active&&!expiredWorkspace) pollTimer = setTimeout(refresh, cloudPollDelay(latest,document.hidden)); }
+  finally { if (active&&!unavailableWorkspace) pollTimer = setTimeout(refresh, cloudPollDelay(latest,document.hidden)); }
 }
 
 // Spatial preview is explicitly raw trajectories, never a fabricated embedding.
@@ -719,7 +737,7 @@ $('close-trajectory').onclick=closeTrajectory;
 $('trajectory-card').onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeTrajectory();}};
 $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajectory-play').textContent=trajectoryRunning?'Pause':'Play';clearTimeout(trajectoryTimer);if(trajectoryRunning)animateTrajectory();};
 renderHistory();showJourney();
-if(active){loadingWorkspace=true;renderFileControls();refresh();}else {
+if(active){loadingWorkspace=true;$('status').textContent='Loading analysis…';renderFileControls();refresh();}else {
   draw();
   if(fragment.has('job'))error(new Error('This analysis is not available in this browser. Return to the browser where you started it, or start a new analysis here.'));
 }
