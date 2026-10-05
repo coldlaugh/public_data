@@ -1,13 +1,13 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=e41f1dcac406b708";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=e41f1dcac406b708";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=e41f1dcac406b708';
-import {artifactVersion} from './artifact-links.js?v=e41f1dcac406b708';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=e41f1dcac406b708';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=e41f1dcac406b708';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=e41f1dcac406b708';
-import {createColoring} from './coloring.js?v=e41f1dcac406b708';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=e41f1dcac406b708';
-import {createViewRecovery} from './view-recovery.js?v=e41f1dcac406b708';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=a20b3951002ffe0b";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=a20b3951002ffe0b";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=a20b3951002ffe0b';
+import {artifactVersion} from './artifact-links.js?v=a20b3951002ffe0b';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=a20b3951002ffe0b';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=a20b3951002ffe0b';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=a20b3951002ffe0b';
+import {createColoring} from './coloring.js?v=a20b3951002ffe0b';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=a20b3951002ffe0b';
+import {createViewRecovery} from './view-recovery.js?v=a20b3951002ffe0b';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -368,7 +368,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=e41f1dcac406b708';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=a20b3951002ffe0b';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -409,6 +409,7 @@ async function setProjection(method,settings=null) {
       // preview. Explicit inspection and native point selections can reopen it.
       if(snapshot.selectionChanged||selectionChanged||!$('trajectory-card').hidden)showTrajectory(ids);
       updateTrackFinder(true);updateLegendScope();
+      if(snapshot.inspectTrajectory&&!$('trajectory-card').hidden){trajectoryReturnFocus=$('legacy-projector');$('close-trajectory').focus();}
       if(snapshot.selectionChanged&&selectionToSync===null){saveWorkspaceDraft();renderSendHint();}
     };
     if(legacyVersion!==embeddingId){
@@ -457,7 +458,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=e41f1dcac406b708', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=a20b3951002ffe0b', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -1002,6 +1003,7 @@ function closeTrajectory(){
   $('trajectory-card').hidden=true;selectedCardId=null;trajectoryGroup=[];previewSelectedGroup=false;$('trajectory-search').value='';trajectoryChoicesKey=null;clearTimeout(trajectoryTimer);
   const target=trajectoryReturnFocus;trajectoryReturnFocus=null;
   if(target?.isConnected&&!target.disabled&&!target.closest('[hidden]')){
+    if(target===$('legacy-projector')&&legacyMode&&legacyApi?.focusSelectionDetails())return;
     if($('view-panel').contains(target)&&target!==$('view-panel').querySelector('summary'))$('view-panel').open=true;
     if(target.getClientRects().length){target.focus();return;}
   }
