@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=6ddeb56f530e8938";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=6ddeb56f530e8938";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=6ddeb56f530e8938';
-import {artifactVersion} from './artifact-links.js?v=6ddeb56f530e8938';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=6ddeb56f530e8938';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=6ddeb56f530e8938';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=6ddeb56f530e8938';
-import {createColoring} from './coloring.js?v=6ddeb56f530e8938';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=6ddeb56f530e8938';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=3603a5a51aae8f94";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=3603a5a51aae8f94";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=3603a5a51aae8f94';
+import {artifactVersion} from './artifact-links.js?v=3603a5a51aae8f94';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=3603a5a51aae8f94';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=3603a5a51aae8f94';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=3603a5a51aae8f94';
+import {createColoring} from './coloring.js?v=3603a5a51aae8f94';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=3603a5a51aae8f94';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -353,7 +353,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=6ddeb56f530e8938';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=3603a5a51aae8f94';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -435,7 +435,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=6ddeb56f530e8938', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=3603a5a51aae8f94', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
