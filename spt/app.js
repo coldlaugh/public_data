@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=70c86da32cf1ef32";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=70c86da32cf1ef32";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=70c86da32cf1ef32';
-import {artifactVersion} from './artifact-links.js?v=70c86da32cf1ef32';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=70c86da32cf1ef32';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=70c86da32cf1ef32';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=70c86da32cf1ef32';
-import {createColoring} from './coloring.js?v=70c86da32cf1ef32';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=70c86da32cf1ef32';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=7e4add2ba4715150";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=7e4add2ba4715150";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=7e4add2ba4715150';
+import {artifactVersion} from './artifact-links.js?v=7e4add2ba4715150';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=7e4add2ba4715150';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=7e4add2ba4715150';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=7e4add2ba4715150';
+import {createColoring} from './coloring.js?v=7e4add2ba4715150';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=7e4add2ba4715150';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -358,7 +358,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=70c86da32cf1ef32';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=7e4add2ba4715150';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -444,7 +444,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=70c86da32cf1ef32', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=7e4add2ba4715150', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -799,6 +799,7 @@ function updatePlotHelp(method=$('projection').value){
   $('plot-help').textContent=method==='raw'?'Click a trajectory to inspect it, or find its filename and ID in View & parameters. Drag a lasso to select several. Selected tracks accompany your next question.':'Each point represents one trajectory’s encoder vector. Projection distances have no spatial units and clusters alone do not establish a motion model. Click a point to inspect it, or find its filename and ID in View & parameters.';
   if(method!=='raw')$('plot-help').textContent+=' In 3D, Rotate view moves only the camera; Pause rotation keeps your selection.';
   if(method==='umap'||method==='tsne')$('plot-help').textContent+=' This projection is stochastic; rerunning can change the layout even with the same parameters.';
+  if(method==='pca'&&legacyMode)$('plot-help').textContent+=' This PCA uses uncentered SVD; component percentages describe squared vector magnitude, including the mean. See Projection settings for details.';
 }
 function draw(){
   updateSelectionScope();

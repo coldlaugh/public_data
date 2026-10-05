@@ -3,11 +3,11 @@ export function projectionFigureContext({snapshot,settings,coloring,legendNote,f
   const method=String(snapshot.projection).toUpperCase();
   const is3D=snapshot.projection==='umap'?settings?.umapIs3d:snapshot.projection==='tsne'?settings?.tSNEis3d:settings?.pcaIs3d;
   return {
-    title:method+' encoder projection'+(typeof is3D==='boolean'?' · '+(is3D?'3D':'2D'):''),
+    title:(snapshot.projection==='pca'?'Uncentered PCA':method)+' encoder projection'+(typeof is3D==='boolean'?' · '+(is3D?'3D':'2D'):''),
     scope:snapshot.pointCount+' trajector'+(snapshot.pointCount===1?'y':'ies')+' in this projection · '+snapshot.selectedCount+' selected',
     datasets:'Datasets: '+filenames.join(', '),
     explanation:'One point per trajectory. Projection distances have no spatial units; clusters alone do not establish a motion model.',
-    rerun:snapshot.projection==='umap'||snapshot.projection==='tsne'?'Stochastic projection; rerunning can change the layout.':'PCA may approximate or sample the data; recorded parameters do not guarantee the same layout.',
+    rerun:snapshot.projection==='umap'||snapshot.projection==='tsne'?'Stochastic projection; rerunning can change the layout.':'Uncentered SVD of the current trajectory group; component shares describe squared vector magnitude, including the mean. Centered variance is not reported. Random dimension reduction or sampling can change the result.',
     legend:coloring?{title:coloring.spec.label+(coloring.spec.units?' ('+coloring.spec.units+')':''),kind:coloring.spec.kind,entries:coloring.entries.map(e=>({...e})),ramp:coloring.ramp?[...coloring.ramp]:null,note:legendNote}:null,
     selectionNote:coloring?'Selected points are enlarged and labelled; colors retain supplied values.':'Selected points are enlarged and labelled using the native projector display colors.',
   };
