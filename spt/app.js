@@ -1,8 +1,8 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js';
-import {createColoring} from './coloring.js';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=c34f6f9e1a47544b";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=c34f6f9e1a47544b";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=c34f6f9e1a47544b';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=c34f6f9e1a47544b';
+import {createColoring} from './coloring.js?v=c34f6f9e1a47544b';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -153,7 +153,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=c34f6f9e1a47544b';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -202,7 +202,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=c34f6f9e1a47544b', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
