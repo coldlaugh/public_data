@@ -1,12 +1,13 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=5f185a6acf6f98f1";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=5f185a6acf6f98f1";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=5f185a6acf6f98f1';
-import {artifactVersion} from './artifact-links.js?v=5f185a6acf6f98f1';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=5f185a6acf6f98f1';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=5f185a6acf6f98f1';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=5f185a6acf6f98f1';
-import {createColoring} from './coloring.js?v=5f185a6acf6f98f1';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=5f185a6acf6f98f1';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=32e8d9fe224936d0";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=32e8d9fe224936d0";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=32e8d9fe224936d0';
+import {artifactVersion} from './artifact-links.js?v=32e8d9fe224936d0';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=32e8d9fe224936d0';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=32e8d9fe224936d0';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=32e8d9fe224936d0';
+import {createColoring} from './coloring.js?v=32e8d9fe224936d0';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=32e8d9fe224936d0';
+import {createViewRecovery} from './view-recovery.js?v=32e8d9fe224936d0';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -25,6 +26,8 @@ let sendingWorkspaceKey=null,lastBrowserAddress='';
 let sampleFile=null, sampleContext='';
 // Keep file references in this tab, without copying uploads into browser storage.
 const workspaceDrafts=new Map();
+const viewRecovery=createViewRecovery({getItem:key=>sessionStorage.getItem(key),setItem:(key,value)=>sessionStorage.setItem(key,value),removeItem:key=>sessionStorage.removeItem(key)});
+let viewRecoveryFailed=false;
 let draftToRestore=null,loadingWorkspace=false,unavailableWorkspace=false,recoveryDraftKey=null,missingRecoveryFiles=false,missingAnalysisLink=false;
 let connectionError=null;
 let projectorClientId;
@@ -74,7 +77,9 @@ function saveWorkspaceDraft(){
   workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[...selected]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||$('projection').value):$('projection').value,
     projectionSettings:loadingWorkspace?draftToRestore?.projectionSettings:legacyApi?.viewSettings?.()||workspaceDrafts.get(key)?.projectionSettings,
     ...(!active||unavailableWorkspace?{files,sampleFile:sampleFile||(unavailableWorkspace&&storedDemoContext()?files[0]:null),sampleContext:sampleContext||(unavailableWorkspace?storedDemoContext():''),creationKey:unavailableWorkspace?recoveryDraftKey.slice(4):creationKey,missingFiles:unavailableWorkspace?!files.length:missingRecoveryFiles||(missingAnalysisLink&&!files.length&&!!question.trim())}:{})});
+  if(active&&!unavailableWorkspace&&!loadingWorkspace&&!pendingNativeSelection)viewRecoveryFailed=!viewRecovery.save(active.id,workspaceDrafts.get(key));
 }
+window.addEventListener('pagehide',saveWorkspaceDraft);
 function renderDraftHistory(){
   const drafts=[...workspaceDrafts].filter(([key])=>key.startsWith('new:')&&key!==workspaceKey());
   $('draft-section').hidden=!drafts.length;
@@ -129,6 +134,7 @@ function restoreDraftSelection(draft){
   selected=new Set(draft?.selection||[]);draw();syncTrackChoice();showTrajectory([...selected]);
 }
 function openUnsentWorkspace(draft=null,{historyMode='push'}={}){
+  viewRecoveryFailed=false;
   clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=!!draft?.files?.length;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
   resetUnavailable();missingRecoveryFiles=!!draft?.missingFiles;
   creationKey=draft?.creationKey||crypto.randomUUID()+crypto.randomUUID();
@@ -140,7 +146,9 @@ function openUnsentWorkspace(draft=null,{historyMode='push'}={}){
 async function openSavedWorkspace(job,{historyMode='push'}={}){
   if(!job||job.id===active?.id)return;
   saveWorkspaceDraft();resetUnavailable();missingRecoveryFiles=false;clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
-  sampleFile=null;sampleContext='';draftToRestore=workspaceDrafts.get(job.id)||null;loadingWorkspace=true;
+  viewRecoveryFailed=false;
+  sampleFile=null;sampleContext='';draftToRestore=workspaceDrafts.get(job.id)||viewRecovery.load(job.id);loadingWorkspace=true;
+  if(draftToRestore)workspaceDrafts.set(job.id,draftToRestore);
   $('question').value=draftToRestore?.question||'';resetEmbedding();clearConversation();setFiles([]);$('status').textContent='Loading analysis…';renderHistory();showJourney();
   if(historyMode)writeWorkspaceAddress(historyMode);await refresh();
 }
@@ -249,10 +257,10 @@ function selectTracks(ids) {
     if(ids.some(id=>!encoded.has(id))){const failure=new Error('This trajectory has no encoder vector in this projection. Switch to Raw trajectories to inspect it.');failure.code='unknown_track';throw failure;}
     const pending=pendingNativeSelection?.request===projectionGeneration?pendingNativeSelection:null,previous=pending?.ids;
     if(pending)pending.ids=[...ids];
-    try{const result=legacyApi.select(ids);showTrajectory(ids);syncTrackChoice();return result;}catch{if(pending)pending.ids=previous;const failure=new Error('This trajectory is outside the current projection view. Restore all trajectories in View & parameters to inspect it.');failure.code='unknown_track';failure.filtered=true;throw failure;}
+    try{const result=legacyApi.select(ids);showTrajectory(ids);syncTrackChoice();if(active){saveWorkspaceDraft();renderSendHint();}return result;}catch{if(pending)pending.ids=previous;const failure=new Error('This trajectory is outside the current projection view. Restore all trajectories in View & parameters to inspect it.');failure.code='unknown_track';failure.filtered=true;throw failure;}
   }
   if(pendingNativeSelection?.request===projectionGeneration)pendingNativeSelection.ids=[...ids];
-  selected=new Set(ids);draw();showTrajectory(ids);syncTrackChoice();return {selectedTrackIds:[...selected]};
+  selected=new Set(ids);draw();showTrajectory(ids);syncTrackChoice();if(active){saveWorkspaceDraft();renderSendHint();}return {selectedTrackIds:[...selected]};
 }
 function decode(data) { return new TextDecoder().decode(Uint8Array.from(atob(data), c => c.charCodeAt(0))); }
 function encode(bytes) {
@@ -300,6 +308,7 @@ function renderSendHint(){
   else if(unavailableWorkspace)$('send-hint').textContent='This unavailable analysis cannot accept follow-ups.';
   else if(!active)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
   else $('send-hint').textContent=['running','queued'].includes(latest?.status)?'Follow-ups will run after the current analysis.':'You can return to this conversation from this browser.';
+  if(active&&!unavailableWorkspace&&!sending)$('send-hint').textContent+=viewRecoveryFailed?' View settings could not be saved for reload.':' View settings recover after reload in this tab; unsent questions do not.';
 }
 function dockProjectionLegend(open){
   const legend=$('color-legend'),dock=$('legend-dock'),plot=$('legacy-projector').parentElement;
@@ -345,6 +354,7 @@ async function setProjection(method,settings=null) {
   pendingNativeSelection={request,get ids(){return selectionToSync;},set ids(ids){selectionToSync=ids;}};
   legacyApi?.cancel();
   if(method==='raw'){
+    pendingNativeSelection=null;
     dockProjectionLegend(false);
     $('projection-notice').hidden=true;
     for(const option of $('projection').options)option.disabled=option.value!=='raw'&&!embedding;
@@ -358,7 +368,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=5f185a6acf6f98f1';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=32e8d9fe224936d0';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -384,7 +394,7 @@ async function setProjection(method,settings=null) {
     legacyApi.onChange=snapshot=>{
       if(!legacyMode)return;
       dockProjectionLegend(true);
-      if(snapshot.controlsChanged)return;
+      if(snapshot.controlsChanged){if(selectionToSync===null){saveWorkspaceDraft();renderSendHint();}return;}
       if(selectionToSync!==null&&snapshot.selectionChanged)selectionToSync=snapshot.selectedTrackIds;
       const ids=selectionToSync??snapshot.selectedTrackIds;
       const selectionChanged=ids.length!==selected.size||ids.some(id=>!selected.has(id));
@@ -399,6 +409,7 @@ async function setProjection(method,settings=null) {
       // preview. Explicit inspection and native point selections can reopen it.
       if(snapshot.selectionChanged||selectionChanged||!$('trajectory-card').hidden)showTrajectory(ids);
       updateTrackFinder(true);updateLegendScope();
+      if(snapshot.selectionChanged&&selectionToSync===null){saveWorkspaceDraft();renderSendHint();}
     };
     if(legacyVersion!==embeddingId){
       const version=embeddingId, usedApi=legacyApi;
@@ -420,9 +431,11 @@ async function setProjection(method,settings=null) {
     legacyApi.select(selectionToSync??plan.ids);selectionToSync=null;pendingNativeSelection=null;
     legacyApi.color(pointColoring?[...pointColoring.colors]:null);
     $('projection').value=result.projection;updatePlotHelp(result.projection);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;updateTrackFinder();updateLegendScope();
+    if(active){saveWorkspaceDraft();renderSendHint();}
     return result;
   }catch(failure){
     if(request!==projectionGeneration)return {cancelled:true};
+    pendingNativeSelection=null;
     console.warn('Native projection fallback:',failure);
     legacyMode=false;legacyApi?.cancel();frame.hidden=true;$('plot').hidden=false;frame.parentElement.classList.remove('legacy');
     $('embedding-info').textContent='Original projector unavailable; showing the compact projection.';
@@ -434,7 +447,7 @@ async function setCompactProjection(method) {
   if (method!=='raw'&&!embedding) throw new Error('Encoder vectors are not available yet.');
   cancelProjection(); projectedEmbedding=null;
   $('projection').value=method;
-  if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
+  if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); if(active){saveWorkspaceDraft();renderSendHint();}return {projection:'raw'}; }
   const small=embedding.points.length<3;
   if(small){
     method='pca';$('projection').value=method;updatePlotHelp(method);
@@ -444,7 +457,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=5f185a6acf6f98f1', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=32e8d9fe224936d0', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -1018,7 +1031,7 @@ $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajec
 if(!missingAnalysisLink)writeWorkspaceAddress('replace');
 else {history.replaceState({sptWorkspace:workspaceKey()},'',location.href);lastBrowserAddress=browserAddress();}
 renderHistory();showJourney();
-if(active){loadingWorkspace=true;$('status').textContent='Loading analysis…';renderFileControls();refresh();}else {
+if(active){draftToRestore=viewRecovery.load(active.id);if(draftToRestore)workspaceDrafts.set(active.id,draftToRestore);loadingWorkspace=true;$('status').textContent='Loading analysis…';renderFileControls();refresh();}else {
   draw();
   renderFileControls();
 }
