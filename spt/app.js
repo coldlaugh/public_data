@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=465bcd474970bece";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=465bcd474970bece";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=465bcd474970bece';
-import {artifactVersion} from './artifact-links.js?v=465bcd474970bece';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=465bcd474970bece';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=465bcd474970bece';
-import {createColoring} from './coloring.js?v=465bcd474970bece';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=2f3cb090b002c91f";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=2f3cb090b002c91f";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=2f3cb090b002c91f';
+import {artifactVersion} from './artifact-links.js?v=2f3cb090b002c91f';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=2f3cb090b002c91f';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=2f3cb090b002c91f';
+import {createColoring} from './coloring.js?v=2f3cb090b002c91f';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -190,7 +190,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=465bcd474970bece';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=2f3cb090b002c91f';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -243,7 +243,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=465bcd474970bece', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=2f3cb090b002c91f', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -630,7 +630,7 @@ function closeTrajectory(){
   $('trajectory-card').hidden=true;selectedCardId=null;clearTimeout(trajectoryTimer);
   const target=trajectoryReturnFocus;trajectoryReturnFocus=null;
   if(target?.isConnected&&!target.disabled&&!target.closest('[hidden]')){
-    if($('view-panel').contains(target))$('view-panel').open=true;
+    if($('view-panel').contains(target)&&target!==$('view-panel').querySelector('summary'))$('view-panel').open=true;
     if(target.getClientRects().length){target.focus();return;}
   }
   $('view-panel').querySelector('summary').focus();
