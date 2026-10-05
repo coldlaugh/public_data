@@ -1,17 +1,18 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=9f92b70fd87bbfaf";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=9f92b70fd87bbfaf";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=9f92b70fd87bbfaf';
-import {artifactVersion} from './artifact-links.js?v=9f92b70fd87bbfaf';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=9f92b70fd87bbfaf';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=9f92b70fd87bbfaf';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=9f92b70fd87bbfaf';
-import {createColoring} from './coloring.js?v=9f92b70fd87bbfaf';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=45c94fd18821daff";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=45c94fd18821daff";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=45c94fd18821daff';
+import {artifactVersion} from './artifact-links.js?v=45c94fd18821daff';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=45c94fd18821daff';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=45c94fd18821daff';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=45c94fd18821daff';
+import {createColoring} from './coloring.js?v=45c94fd18821daff';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=45c94fd18821daff';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
 let files = [], active = null, latest = null, points = [], selected = new Set(), polygon = [], drawing = false;
 let artifactUrls = [], pendingFiles=[], started=false, autoViewVersion=null, selectedCardId=null;
-let bundleUrl=null,bundleBusy=false;
+let bundleUrl=null,bundleBusy=false,figureError=null;
 let embedding = null, embeddingId = null, projectionWorker = null, projectedEmbedding = null;
 let embeddingArtifactsVersion = null;
 let finishProjection = null;
@@ -292,7 +293,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=9f92b70fd87bbfaf';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=45c94fd18821daff';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -303,6 +304,18 @@ async function setProjection(method,settings=null) {
     await legacyApi.ready;
     if(request!==projectionGeneration)return {cancelled:true};
     legacyMode=true;
+    legacyApi.setScreenshotHandler(async(canvas,snapshot)=>{
+      const exportWorkspace=workspaceKey();
+      const context=projectionFigureContext({snapshot,settings:legacyApi.viewSettings(),coloring:pointColoring,
+        legendNote:$('color-legend').querySelector('small')?.textContent||'',filenames:files.map(f=>f.name)});
+      try{
+        if(!snapshot.projectionReady)throw new Error('Wait for the projection to finish before downloading its figure.');
+        const blob=await renderProjectionFigure(canvas,context),url=URL.createObjectURL(blob),link=document.createElement('a');
+        link.href=url;link.download='spt-'+snapshot.projection+'-projection.png';link.click();
+        setTimeout(()=>URL.revokeObjectURL(url),60000);
+        if(workspaceKey()===exportWorkspace){if(figureError&&$('error').textContent===figureError)error(null);figureError=null;}
+      }catch(failure){if(workspaceKey()===exportWorkspace){figureError=failure.message;error(failure);}}
+    });
     legacyApi.onChange=snapshot=>{
       if(!legacyMode)return;
       if(selectionToSync!==null&&snapshot.selectionChanged)selectionToSync=snapshot.selectedTrackIds;
@@ -350,7 +363,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=9f92b70fd87bbfaf', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=45c94fd18821daff', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
