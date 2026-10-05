@@ -1,15 +1,15 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=c845287bafec7383";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=c845287bafec7383";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=c845287bafec7383';
-import {artifactVersion} from './artifact-links.js?v=c845287bafec7383';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=c845287bafec7383';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=c845287bafec7383';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=c845287bafec7383';
-import {createColoring} from './coloring.js?v=c845287bafec7383';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=c845287bafec7383';
-import {createViewRecovery} from './view-recovery.js?v=c845287bafec7383';
-import {createAgentTools} from './agent-tools.js?v=c845287bafec7383';
-import {createAgentReceipts} from './agent-receipts.js?v=c845287bafec7383';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=8d486018cdd65536";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8d486018cdd65536";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8d486018cdd65536';
+import {artifactVersion} from './artifact-links.js?v=8d486018cdd65536';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=8d486018cdd65536';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=8d486018cdd65536';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8d486018cdd65536';
+import {createColoring} from './coloring.js?v=8d486018cdd65536';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=8d486018cdd65536';
+import {createViewRecovery} from './view-recovery.js?v=8d486018cdd65536';
+import {createAgentTools} from './agent-tools.js?v=8d486018cdd65536';
+import {createAgentReceipts} from './agent-receipts.js?v=8d486018cdd65536';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -84,7 +84,7 @@ function saveWorkspaceDraft(){
   const key=unavailableWorkspace?recoveryDraftKey:workspaceKey(),question=$('question').value;
   if(!active&&!question.trim()&&!files.length){workspaceDrafts.delete(key);return;}
   workspaceDrafts.set(key,{question,selection:loadingWorkspace?(draftToRestore?.selection||[...selected]):[...selected],projection:loadingWorkspace?(draftToRestore?.projection||$('projection').value):$('projection').value,
-    pendingFiles:[...pendingFiles],
+    pendingFiles:loadingWorkspace?(draftToRestore?.pendingFiles||[]):[...pendingFiles],
     projectionSettings:loadingWorkspace?draftToRestore?.projectionSettings:legacyApi?.viewSettings?.()||workspaceDrafts.get(key)?.projectionSettings,
     ...(!active||unavailableWorkspace?{files,sampleFile:sampleFile||(unavailableWorkspace&&storedDemoContext()?files[0]:null),sampleContext:sampleContext||(unavailableWorkspace?storedDemoContext():''),creationKey:unavailableWorkspace?recoveryDraftKey.slice(4):creationKey,missingFiles:unavailableWorkspace?!files.length:missingRecoveryFiles||(missingAnalysisLink&&!files.length&&!!question.trim())}:{})});
   if(active&&!unavailableWorkspace&&!loadingWorkspace&&!pendingNativeSelection)viewRecoveryFailed=!viewRecovery.save(active.id,workspaceDrafts.get(key));
@@ -381,7 +381,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=c845287bafec7383';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8d486018cdd65536';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -471,7 +471,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=c845287bafec7383', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=8d486018cdd65536', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -497,7 +497,7 @@ $('files').addEventListener('change', async event => {
     const chosen = [...event.target.files];event.target.value='';
     if(!chosen.length)return;
     if(sending||loadingWorkspace||unavailableWorkspace)throw new Error('Wait for this workspace to be ready before adding files.');
-    const origin=workspaceKey();
+    const origin=workspaceKey(),originalFiles=files;
     const names=new Set(files.map(f=>f.name.toLowerCase()));
     for(const f of chosen){if(names.has(f.name.toLowerCase()))throw new Error('A file named '+f.name+' is already selected. Remove it first to replace it.');names.add(f.name.toLowerCase());}
     const selectedBytes=files.reduce((n,f)=>n+(f.bytes??Math.floor(f.data.length*3/4)-(f.data.endsWith('==')?2:f.data.endsWith('=')?1:0)),0);
@@ -509,7 +509,7 @@ $('files').addEventListener('change', async event => {
       if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error(f.name+': this file contains binary or unsupported control characters. Export it as UTF-8 text before adding it. Previously selected files are still available; none of this batch was added.');
       added.push({name:f.name,bytes:f.size,data:encode(bytes)});
     }
-    if(workspaceKey()!==origin||sending||loadingWorkspace||unavailableWorkspace)throw new Error('The workspace changed while reading files. Add them again in the intended analysis.');
+    if(workspaceKey()!==origin||files!==originalFiles||sending||loadingWorkspace||unavailableWorkspace)throw new Error('The workspace changed while reading files. Add them again in the intended analysis.');
     const combined=[...files,...added];if(active)pendingFiles=[...pendingFiles,...added];setFiles(combined,true);$('data-panel').querySelector('summary').focus();
     error(null);
   } catch (err) { error(err); }
@@ -613,7 +613,10 @@ function render(job) {
   renderSendHint();
   if (!files.length&&job.files.length) setFiles(job.files);
   const restoredDraft=draftToRestore;draftToRestore=null;
-  if(restoredDraft?.pendingFiles?.length){pendingFiles=restoredDraft.pendingFiles;setFiles([...job.files,...pendingFiles],true);}
+  if(restoredDraft?.pendingFiles?.length)pendingFiles=restoredDraft.pendingFiles;
+  const stagedCount=pendingFiles.length;
+  pendingFiles=pendingFiles.filter(file=>!job.files.some(sent=>sent.name===file.name&&sent.data===file.data));
+  if(restoredDraft?.pendingFiles?.length||pendingFiles.length!==stagedCount)setFiles([...job.files,...pendingFiles],true);
   if(restoredDraft)selected=new Set(restoredDraft.selection);
   const currentTurn=job.turns.findIndex(t=>t.status==='running');
   const projectionStage=job.events.filter(e=>e.kind==='progress'&&e.turn===currentTurn).at(-1)?.stage;
