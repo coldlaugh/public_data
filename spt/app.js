@@ -1,8 +1,9 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=c34f6f9e1a47544b";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=c34f6f9e1a47544b";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=c34f6f9e1a47544b';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=c34f6f9e1a47544b';
-import {createColoring} from './coloring.js?v=c34f6f9e1a47544b';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=d0ea26ed6d2c82ab";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d0ea26ed6d2c82ab";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d0ea26ed6d2c82ab';
+import {artifactVersion} from './artifact-links.js?v=d0ea26ed6d2c82ab';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=d0ea26ed6d2c82ab';
+import {createColoring} from './coloring.js?v=d0ea26ed6d2c82ab';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -153,7 +154,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=c34f6f9e1a47544b';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d0ea26ed6d2c82ab';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -202,7 +203,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=c34f6f9e1a47544b', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=d0ea26ed6d2c82ab', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -390,7 +391,8 @@ function render(job) {
     if (file.name.startsWith('mplconfig__')) continue;
     const artifactKey = JSON.stringify([file.name, file.sha256 || file.data]);
     if(displayedArtifacts.has(artifactKey))continue;displayedArtifacts.add(artifactKey);
-    const a=document.createElement('button');a.className='artifact';a.textContent=file.name;a.onclick=()=>openArtifact(file);$('downloads').append(a);
+    const version=artifactVersion(file,job.artifacts);
+    const a=document.createElement('button');a.className='artifact';a.textContent=file.name+' · Response '+version.response+(version.superseded?' · Earlier version':'');a.onclick=()=>openArtifact(file);$('downloads').append(a);
   }
   $('result-count').textContent=displayedArtifacts.size?displayedArtifacts.size+' file'+(displayedArtifacts.size===1?'':'s'):'No outputs yet';
 }
@@ -503,6 +505,9 @@ function openArtifact(file){
   const type=({png:'image/png',jpg:'image/jpeg',pdf:'application/pdf',csv:'text/csv'})[ext]||'text/plain';
   const url=URL.createObjectURL(new Blob([bytes],{type}));artifactUrls.push(url);
   $('artifact-title').textContent=file.name;$('artifact-download').href=url;$('artifact-download').download=file.name;
+  const version=artifactVersion(file,latest?.artifacts||[]),notice=$('artifact-version');
+  notice.replaceChildren(document.createTextNode('Response '+version.response+(version.superseded?' · Earlier version. A newer version of this file is available.':' · Latest version.')));
+  if(version.superseded){const button=document.createElement('button');button.className='quiet';button.textContent='Open latest version';button.onclick=()=>{openArtifact(version.latest);$('artifact-download').focus();};notice.append(button);}
   const preview=$('artifact-preview');preview.replaceChildren();
   if(['png','jpg'].includes(ext)){const img=document.createElement('img');img.src=url;img.alt=file.name;preview.append(img);}
   else if(ext==='pdf'){const p=document.createElement('p');p.textContent='Download this PDF to open it in your document viewer.';preview.append(p);}

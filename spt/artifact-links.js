@@ -1,3 +1,11 @@
+// Keep historical response links intact while identifying superseded file contents.
+export function artifactVersion(file,artifacts){
+  const latest=artifacts.filter(item=>item.name===file.name).at(-1)||file;
+  const sameContent=latest===file || (file.sha256&&latest.sha256===file.sha256) ||
+    (file.data!==undefined&&latest.data===file.data);
+  return {response:(file.turn??0)+1,superseded:!sameContent,latest};
+}
+
 // Resolve only artifacts already attached to this conversation; never fetch local paths.
 export function resolveArtifactLink(href,artifacts,turn=Infinity){
   if(typeof href!=='string')return null;

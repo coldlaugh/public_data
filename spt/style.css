@@ -19,4 +19,7 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 
 .selection-context{display:block;margin-top:8px;font-size:11px;color:#61728d}
 
+#artifact-version{padding:10px 18px;background:#f0f4fb;color:#53647c;font-size:.8125rem;line-height:1.5;display:flex;align-items:center;gap:10px;flex-wrap:wrap}#artifact-version button{font-size:inherit}
+@media(max-width:800px){.plot-wrap.legacy #legacy-projector{position:absolute;top:48px;height:calc(100% - 48px)}.artifact-dialog-head h2{min-width:0;flex:1}.artifact-dialog-head>div{flex-shrink:0;gap:10px}}
+
 #data-guide,#demo-info{flex-basis:100%;font-size:.8125rem;line-height:1.6;color:var(--muted)}#data-guide summary,#demo-info summary{cursor:pointer;color:#3e65aa}#data-guide p{margin:8px 0}#dataset-lock{flex-basis:100%;margin:0}.explorer-help{flex:none;font-size:.8125rem;line-height:1.5;color:var(--muted);margin:0;padding:9px 18px;border-bottom:1px solid var(--border)}#demo-context .markdown{font-size:.8125rem}
