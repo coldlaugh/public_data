@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=0cf93d0b97e0ad95";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=0cf93d0b97e0ad95";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=0cf93d0b97e0ad95';
-import {artifactVersion} from './artifact-links.js?v=0cf93d0b97e0ad95';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=0cf93d0b97e0ad95';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=0cf93d0b97e0ad95';
-import {createColoring} from './coloring.js?v=0cf93d0b97e0ad95';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=530e2052876442de";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=530e2052876442de";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=530e2052876442de';
+import {artifactVersion} from './artifact-links.js?v=530e2052876442de';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=530e2052876442de';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=530e2052876442de';
+import {createColoring} from './coloring.js?v=530e2052876442de';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -42,16 +42,19 @@ if (fragment.has('job') && fragment.has('key')) {
 missingAnalysisLink=fragment.has('job')&&!active;
 
 function remember(job) {
-  const all = savedJobs().filter(j => j.id !== job.id);
-  all.push({...job,title:latest?.turns?.[0]?.question?.slice(0,70)||job.title||'New conversation'});
+  const saved=savedJobs(),previous=saved.find(j=>j.id===job.id);
+  const entry={...job,title:job.title||previous?.title||'Analysis'};
+  if(saved.at(-1)?.id===job.id&&JSON.stringify(previous)===JSON.stringify(entry))return;
+  const all=saved.filter(j=>j.id!==job.id);all.push(entry);
   localStorage.setItem('spt.jobs', JSON.stringify(all));
   renderHistory();
 }
+function analysisLabel(job){return (job.title||'Analysis')+' · '+job.id.slice(-8);}
 function renderHistory() {
   const options = [Object.assign(document.createElement('option'), {value:'', textContent:'Choose an analysis'})];
-  for (const job of savedJobs().reverse()) options.push(Object.assign(document.createElement('option'), {value:job.id, textContent:job.id.slice(0,10)}));
+  for (const job of savedJobs().reverse()) options.push(Object.assign(document.createElement('option'), {value:job.id, textContent:analysisLabel(job)}));
   $('history').replaceChildren(...options); $('history').value = active?.id || '';
-  $('conversation-list').replaceChildren(...savedJobs().reverse().map(job=>{const b=document.createElement('button');b.textContent=job.title||'Analysis '+job.id.slice(0,10);b.className=active?.id===job.id?'current':'';b.disabled=sending;b.onclick=()=>{$('history').value=job.id;$('history').onchange();sidebar(false);};return b;}));
+  $('conversation-list').replaceChildren(...savedJobs().reverse().map(job=>{const b=document.createElement('button');b.textContent=analysisLabel(job);b.title=(job.title||'Analysis')+' · '+job.id;b.className=active?.id===job.id?'current':'';b.disabled=sending;b.onclick=()=>{$('history').value=job.id;sidebar(false);$('history').onchange();};return b;}));
   renderDraftHistory();
 }
 function workspaceKey(){return active?.id||'new:'+creationKey;}
@@ -67,7 +70,7 @@ function renderDraftHistory(){
   $('draft-list').replaceChildren(...drafts.map(([key,draft])=>{
     const button=document.createElement('button');button.disabled=sending;
     button.textContent=draft.question.trim().slice(0,70)||draft.files.map(f=>f.name).join(', ')||'Recovered analysis draft';
-    button.onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace(workspaceDrafts.get(key)||draft);sidebar(false);};return button;
+    button.onclick=()=>{if(sending)return;saveWorkspaceDraft();sidebar(false);openUnsentWorkspace(workspaceDrafts.get(key)||draft);};return button;
   }));
 }
 function storedDemoContext(){return latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1]||'';}
@@ -149,7 +152,7 @@ const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(se
 async function api(path,data,auth=active){
   let result;
   try{result=await cloudApi(path,data,auth);}catch(err){handleAnalysisFailure(path,err,auth);throw err;}
-  if(result.id===active?.id&&!unavailableWorkspace&&result.expiresAt){active.expiresAt=result.expiresAt;remember(active);}
+  if(result.id===active?.id&&!unavailableWorkspace&&result.expiresAt)active.expiresAt=result.expiresAt;
   return result;
 }
 
@@ -281,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=0cf93d0b97e0ad95';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=530e2052876442de';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -336,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=0cf93d0b97e0ad95', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=530e2052876442de', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -435,7 +438,14 @@ function message(author, text, turn=Infinity) {
 }
 function render(job) {
   if(recoveryDraftKey){workspaceDrafts.delete(recoveryDraftKey);resetUnavailable();renderDraftHistory();}
-  latest = job;loadingWorkspace=false;showJourney();
+  latest = job;loadingWorkspace=false;
+  if(active?.id===job.id){
+    const question=typeof job.turns?.[0]?.question==='string'?questionForDisplay(job.turns[0]).text.trim():'';
+    if(question)active.title=question.slice(0,70)+(question.length>70?'…':'');
+    if(job.expiresAt)active.expiresAt=job.expiresAt;
+    remember(active);
+  }
+  showJourney();
   const status = {queued:'Queued · waiting for the desktop', running:'Analyzing your dataset',
     completed:'Analysis complete',failed:'Analysis needs attention',cancelled:'Analysis stopped',
     cancelling:'Stopping analysis',interrupted:'Desktop connection interrupted'};
