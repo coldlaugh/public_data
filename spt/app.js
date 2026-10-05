@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d13c740076d6c928";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d13c740076d6c928";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d13c740076d6c928';
-import {artifactVersion} from './artifact-links.js?v=d13c740076d6c928';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d13c740076d6c928';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d13c740076d6c928';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d13c740076d6c928';
-import {createColoring} from './coloring.js?v=d13c740076d6c928';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d13c740076d6c928';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=011d91f25dc37218";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=011d91f25dc37218";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=011d91f25dc37218';
+import {artifactVersion} from './artifact-links.js?v=011d91f25dc37218';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=011d91f25dc37218';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=011d91f25dc37218';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=011d91f25dc37218';
+import {createColoring} from './coloring.js?v=011d91f25dc37218';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=011d91f25dc37218';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -304,7 +304,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d13c740076d6c928';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=011d91f25dc37218';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -378,7 +378,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d13c740076d6c928', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=011d91f25dc37218', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -779,7 +779,24 @@ function openArtifact(file){
   notice.replaceChildren(document.createTextNode('Response '+version.response+(version.superseded?' · Earlier version. A newer version of this file is available.':' · Latest version.')));
   if(version.superseded){const button=document.createElement('button');button.className='quiet';button.textContent='Open latest version';button.onclick=()=>{openArtifact(version.latest);$('artifact-download').focus();};notice.append(button);}
   const preview=$('artifact-preview');preview.replaceChildren();
-  if(['png','jpg'].includes(ext)){const img=document.createElement('img');img.src=url;img.alt=file.name;preview.append(img);}
+  $('figure-view-controls').hidden=true;
+  preview.removeAttribute('tabindex');preview.removeAttribute('role');preview.removeAttribute('aria-label');preview.removeAttribute('aria-describedby');
+  if(['png','jpg'].includes(ext)){
+    const img=document.createElement('img'),fit=$('figure-fit'),original=$('figure-original'),help=$('figure-view-help');
+    img.alt=file.name;preview.append(img);$('figure-view-controls').hidden=false;
+    fit.disabled=original.disabled=true;fit.setAttribute('aria-pressed','true');original.setAttribute('aria-pressed','false');help.textContent='Loading figure…';
+    preview.tabIndex=0;preview.setAttribute('role','region');preview.setAttribute('aria-label','Figure preview: '+file.name);preview.setAttribute('aria-describedby','figure-view-help');
+    const size=(actual,event)=>{
+      img.classList.toggle('original-size',actual);fit.setAttribute('aria-pressed',String(!actual));original.setAttribute('aria-pressed',String(actual));
+      help.textContent=actual?'Original image size: '+img.naturalWidth+' × '+img.naturalHeight+' pixels. Scroll to inspect details; choose Fit figure to see the whole figure.':'Fitted to the preview. Choose Original size to inspect axis labels and other details.';
+      preview.scrollTop=preview.scrollLeft=0;
+      if(event?.detail===0)preview.focus();
+    };
+    fit.onclick=event=>size(false,event);original.onclick=event=>size(true,event);
+    img.onload=()=>{if(!img.isConnected)return;fit.disabled=original.disabled=false;size(false);};
+    img.onerror=()=>{if(img.isConnected)help.textContent='This figure could not be displayed. Use Download to open the original file.';};
+    img.src=url;
+  }
   else if(ext==='pdf'){const p=document.createElement('p');p.textContent='Download this PDF to open it in your document viewer.';preview.append(p);}
   else {const text=new TextDecoder().decode(bytes);if(ext==='md')preview.append(renderAnswer(text,href=>resolveArtifact(href,file.turn),openArtifact));else{const pre=document.createElement('pre');pre.textContent=text.slice(0,200000)+(text.length>200000?'\n… Download the full file to read more.':'');preview.append(pre);if(text.length>200000)notice.append(Object.assign(document.createElement('span'),{className:'artifact-preview-limit',textContent:'This text preview is shortened. Use Download for the complete file.'}));}}
   if(!$('artifact-dialog').open)$('artifact-dialog').showModal();

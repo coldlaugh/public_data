@@ -69,3 +69,12 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #legend-dock{flex:none;min-width:0;max-height:25dvh;overflow:auto;background:#fff}
 #legend-dock #color-legend{position:static;max-width:none;max-height:none;margin:8px 14px;box-shadow:none}
 @media(max-width:800px){.explorer:has(#legend-dock:not([hidden])){height:auto}.explorer:has(#legend-dock:not([hidden])) .plot-wrap{flex:none;height:55dvh}#legend-dock{max-height:none}}
+#figure-view-controls{padding:10px 18px;border-bottom:1px solid var(--border);font-size:.8125rem}
+#figure-view-controls [role=group]{display:flex;gap:8px;flex-wrap:wrap}
+#figure-view-controls button[aria-pressed=true]{background:#eaf1ff;border-color:#b3c7ed;color:#345fa8}
+#figure-view-help{margin:8px 0 0;color:var(--muted);line-height:1.5}
+#artifact-preview:focus-visible{outline:2px solid #4285f4;outline-offset:-3px}
+#artifact-preview img.original-size{max-width:none;width:auto;margin:0}
+#artifact-dialog[open]:has(#figure-view-controls:not([hidden])){display:flex;flex-direction:column;overflow:hidden}
+#artifact-dialog:has(#figure-view-controls:not([hidden])) .artifact-dialog-head,#artifact-dialog:has(#figure-view-controls:not([hidden])) #artifact-version,#figure-view-controls{flex:none}
+#artifact-dialog:has(#figure-view-controls:not([hidden])) #artifact-preview{flex:1;min-height:0;max-height:none}
