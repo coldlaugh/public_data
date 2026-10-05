@@ -1,15 +1,15 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=8d486018cdd65536";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8d486018cdd65536";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8d486018cdd65536';
-import {artifactVersion} from './artifact-links.js?v=8d486018cdd65536';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=8d486018cdd65536';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=8d486018cdd65536';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8d486018cdd65536';
-import {createColoring} from './coloring.js?v=8d486018cdd65536';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=8d486018cdd65536';
-import {createViewRecovery} from './view-recovery.js?v=8d486018cdd65536';
-import {createAgentTools} from './agent-tools.js?v=8d486018cdd65536';
-import {createAgentReceipts} from './agent-receipts.js?v=8d486018cdd65536';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=060a4a39f86dfbb5";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=060a4a39f86dfbb5";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=060a4a39f86dfbb5';
+import {artifactVersion} from './artifact-links.js?v=060a4a39f86dfbb5';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=060a4a39f86dfbb5';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=060a4a39f86dfbb5';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=060a4a39f86dfbb5';
+import {createColoring} from './coloring.js?v=060a4a39f86dfbb5';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=060a4a39f86dfbb5';
+import {createViewRecovery} from './view-recovery.js?v=060a4a39f86dfbb5';
+import {createAgentTools} from './agent-tools.js?v=060a4a39f86dfbb5';
+import {createAgentReceipts} from './agent-receipts.js?v=060a4a39f86dfbb5';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -145,7 +145,7 @@ function restoreDraftSelection(draft){
 }
 function openUnsentWorkspace(draft=null,{historyMode='push'}={}){
   viewRecoveryFailed=false;
-  clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=!!draft?.files?.length;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
+  clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=false;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
   resetUnavailable();missingRecoveryFiles=!!draft?.missingFiles;
   creationKey=draft?.creationKey||crypto.randomUUID()+crypto.randomUUID();
   sampleFile=draft?.sampleFile||null;sampleContext=draft?.sampleContext||'';
@@ -281,7 +281,7 @@ function encode(bytes) {
 function setFiles(value, preserveSelection=false) {
   const previousSelection=preserveSelection?[...selected]:[],previewWasOpen=!$('trajectory-card').hidden;
   files = value;if(files.length)missingRecoveryFiles=false;
-  if(!active&&!sending)started=files.length>0;
+  if(!active&&!sending)started=false;
   $('dataset-count').textContent=files.length?`${files.length} file${files.length===1?'':'s'}`:'Add trajectories';
   $('data-panel').open=!files.length;
   renderFileControls();
@@ -308,7 +308,7 @@ function renderFileControls() {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
     if(!sending&&!unavailableWorkspace&&(!active||pendingFiles.includes(file))){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&!pendingFiles.includes(file))return;const remaining=files.filter(f=>f!==file),panelOpen=$('data-panel').open;if(active)pendingFiles=pendingFiles.filter(f=>f!==file);setFiles(remaining,true);$('data-panel').open=panelOpen;error(null);(files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
+      remove.onclick=()=>{if(sending||unavailableWorkspace||active&&!pendingFiles.includes(file))return;const remaining=files.filter(f=>f!==file),panelOpen=$('data-panel').open;if(active)pendingFiles=pendingFiles.filter(f=>f!==file);setFiles(remaining,true);$('data-panel').open=panelOpen;error(null);(!active?$('question'):files.length?$('data-panel').querySelector('summary'):$('files')).focus();};chip.append(remove);
     }
     return chip;
   }));
@@ -381,7 +381,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8d486018cdd65536';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=060a4a39f86dfbb5';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -471,7 +471,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=8d486018cdd65536', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=060a4a39f86dfbb5', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -510,7 +510,7 @@ $('files').addEventListener('change', async event => {
       added.push({name:f.name,bytes:f.size,data:encode(bytes)});
     }
     if(workspaceKey()!==origin||files!==originalFiles||sending||loadingWorkspace||unavailableWorkspace)throw new Error('The workspace changed while reading files. Add them again in the intended analysis.');
-    const combined=[...files,...added];if(active)pendingFiles=[...pendingFiles,...added];setFiles(combined,true);$('data-panel').querySelector('summary').focus();
+    const combined=[...files,...added];if(active)pendingFiles=[...pendingFiles,...added];setFiles(combined,true);(!active&&!started?$('question'):$('data-panel').querySelector('summary')).focus();
     error(null);
   } catch (err) { error(err); }
 });
@@ -577,7 +577,7 @@ async function submitQuestion(question,{followupRequestId=null}={}) {
     if(workspaceKey()!==originKey&&active?.id!==submittedJob?.id)throw new Error('The request from the previous workspace could not be sent. Return to its draft to retry. '+err.message);
     if(!unavailableWorkspace)$('status').textContent='Submission interrupted · your draft is preserved';
     throw err;
-  } finally { sending=false;sendingWorkspaceKey=null;if(!active)started=files.length>0;showJourney();renderFileControls(); }
+  } finally { sending=false;sendingWorkspaceKey=null;if(!active)started=false;showJourney();renderFileControls(); }
 }
 $('composer').onsubmit = event => { event.preventDefault(); submitQuestion($('question').value).catch(error); };
 $('cancel').onclick = async () => {
