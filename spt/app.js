@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=9e40346669975800";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=9e40346669975800";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=9e40346669975800';
-import {artifactVersion} from './artifact-links.js?v=9e40346669975800';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=9e40346669975800';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=9e40346669975800';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=9e40346669975800';
-import {createColoring} from './coloring.js?v=9e40346669975800';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=9e40346669975800';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=d170aafdf47b899c";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d170aafdf47b899c";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d170aafdf47b899c';
+import {artifactVersion} from './artifact-links.js?v=d170aafdf47b899c';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d170aafdf47b899c';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d170aafdf47b899c';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d170aafdf47b899c';
+import {createColoring} from './coloring.js?v=d170aafdf47b899c';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d170aafdf47b899c';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -21,6 +21,7 @@ let pendingFollowup = null,pendingNativeSelection=null;
 let pointColoring=null,colorVersion='null';
 let projectionViewRevision=null,projectionViewIds=null,viewSelectionError=null,rawSelectionError=null;
 let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomUUID() + crypto.randomUUID();
+let sendingWorkspaceKey=null,lastBrowserAddress='';
 let sampleFile=null, sampleContext='';
 // Keep file references in this tab, without copying uploads into browser storage.
 const workspaceDrafts=new Map();
@@ -46,7 +47,7 @@ missingAnalysisLink=fragment.has('job')&&!active;
 
 function remember(job) {
   const saved=savedJobs(),previous=saved.find(j=>j.id===job.id);
-  const entry={...job,title:job.title||previous?.title||'Analysis'};
+  const entry={...previous,...job,title:job.title||previous?.title||'Analysis'};
   if(saved.at(-1)?.id===job.id&&JSON.stringify(previous)===JSON.stringify(entry))return;
   const all=saved.filter(j=>j.id!==job.id);all.push(entry);
   localStorage.setItem('spt.jobs', JSON.stringify(all));
@@ -61,6 +62,12 @@ function renderHistory() {
   renderDraftHistory();
 }
 function workspaceKey(){return active?.id||'new:'+creationKey;}
+function browserAddress(){return location.href+'\n'+(history.state?.sptWorkspace||'');}
+function writeWorkspaceAddress(mode='push'){
+  const url=active?'./#job='+active.id:'./#new=1';
+  history[mode==='push'?'pushState':'replaceState']({sptWorkspace:workspaceKey()},'',url);
+  lastBrowserAddress=browserAddress();
+}
 function saveWorkspaceDraft(){
   const key=unavailableWorkspace?recoveryDraftKey:workspaceKey(),question=$('question').value;
   if(!active&&!question.trim()&&!files.length){workspaceDrafts.delete(key);return;}
@@ -111,6 +118,8 @@ $('start-new-analysis').onclick=()=>{
 };
 $('continue-analysis').onclick=()=>{if(sending||!unavailableWorkspace)return;saveWorkspaceDraft();const draft=workspaceDrafts.get(recoveryDraftKey);openUnsentWorkspace(draft);$('question').focus();};
 function clearConversation(){
+  if($('artifact-dialog').open)$('artifact-dialog').close();
+  $('artifact-preview').replaceChildren();artifactUrls.forEach(url=>URL.revokeObjectURL(url));artifactUrls=[];
   $('messages').replaceChildren();$('system-activity').replaceChildren();$('downloads').replaceChildren();
   $('bundle-controls').hidden=true;$('bundle-status').textContent='';
   $('status').textContent='Ready when you are';$('cancel').hidden=true;$('latest-message').hidden=true;
@@ -119,23 +128,51 @@ function clearConversation(){
 function restoreDraftSelection(draft){
   selected=new Set(draft?.selection||[]);draw();syncTrackChoice();showTrajectory([...selected]);
 }
-function openUnsentWorkspace(draft=null){
-  clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=false;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
+function openUnsentWorkspace(draft=null,{historyMode='push'}={}){
+  clearTimeout(pollTimer);active=null;latest=null;lastSignature='';started=!!draft?.files?.length;pendingFiles=[];draftToRestore=null;loadingWorkspace=false;
   resetUnavailable();missingRecoveryFiles=!!draft?.missingFiles;
   creationKey=draft?.creationKey||crypto.randomUUID()+crypto.randomUUID();
   sampleFile=draft?.sampleFile||null;sampleContext=draft?.sampleContext||'';
   if(sampleContext)$('demo-context').replaceChildren(renderAnswer(sampleContext));
   resetEmbedding();clearConversation();setFiles(draft?.files||[]);$('question').value=draft?.question||'';
-  restoreDraftSelection(draft?.missingFiles?{...draft,selection:[]}:draft);history.replaceState(null,'','./#new=1');renderHistory();error(null);showJourney();
+  restoreDraftSelection(draft?.missingFiles?{...draft,selection:[]}:draft);if(historyMode)writeWorkspaceAddress(historyMode);renderHistory();error(null);showJourney();
 }
-$('history').onchange=async()=>{
-  if(sending)return;
-  const job=savedJobs().find(j=>j.id===$('history').value);if(!job||job.id===active?.id)return;
+async function openSavedWorkspace(job,{historyMode='push'}={}){
+  if(!job||job.id===active?.id)return;
   saveWorkspaceDraft();resetUnavailable();missingRecoveryFiles=false;clearTimeout(pollTimer);active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;
   sampleFile=null;sampleContext='';draftToRestore=workspaceDrafts.get(job.id)||null;loadingWorkspace=true;
   $('question').value=draftToRestore?.question||'';resetEmbedding();clearConversation();setFiles([]);$('status').textContent='Loading analysis…';renderHistory();showJourney();
-  history.replaceState(null,'','./#job='+job.id);await refresh();
+  if(historyMode)writeWorkspaceAddress(historyMode);await refresh();
+}
+$('history').onchange=async()=>{
+  if(sending)return;
+  await openSavedWorkspace(savedJobs().find(j=>j.id===$('history').value));
 };
+async function restoreBrowserWorkspace(){
+  const address=browserAddress();if(address===lastBrowserAddress)return;
+  lastBrowserAddress=address;
+  const fragment=new URLSearchParams(location.hash.slice(1)),draftKey=history.state?.sptWorkspace;
+  let job=selectSavedJob(savedJobs(),fragment);
+  if(fragment.has('job')&&fragment.has('key')){
+    job={id:fragment.get('job'),token:fragment.get('key')};remember(job);
+  }
+  // A draft submitted while the user navigated away becomes its saved analysis.
+  if(!fragment.has('job')&&typeof draftKey==='string')job=savedJobs().find(j=>j.sourceDraftKey===draftKey)||job;
+  if(job){
+    await openSavedWorkspace(job,{historyMode:'replace'});
+    if(active?.id===job.id)writeWorkspaceAddress('replace');
+  }else{
+    if(!fragment.has('job')&&draftKey===workspaceKey()&&!missingAnalysisLink)return;
+    saveWorkspaceDraft();
+    const draft=workspaceDrafts.get(draftKey)||(typeof draftKey==='string'&&draftKey.startsWith('new:')?{creationKey:draftKey.slice(4)}:null);
+    openUnsentWorkspace(draft,{historyMode:null});
+    missingAnalysisLink=fragment.has('job');
+    if(missingAnalysisLink){history.replaceState({sptWorkspace:workspaceKey()},'',location.href);lastBrowserAddress=browserAddress();renderFileControls();showJourney();}
+    else writeWorkspaceAddress('replace');
+  }
+}
+window.addEventListener('popstate',()=>restoreBrowserWorkspace().catch(error));
+window.addEventListener('hashchange',()=>restoreBrowserWorkspace().catch(error));
 function sidebar(open){
   const panel=$('session-sidebar'),wasOpen=!panel.hidden,hadFocus=panel.contains(document.activeElement);
   panel.hidden=!open;$('toggle-sidebar').setAttribute('aria-expanded',String(open));
@@ -150,8 +187,9 @@ function showJourney(){
   if(!talking)panels(true,true);
   if(!active&&!sending)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
   if(missingAnalysisLink){$('status').textContent='Linked analysis unavailable';$('send-hint').textContent='Start a new analysis here to send this question.';}
+  renderSendHint();
 }
-const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(sent,total)=>{$('status').textContent='Uploading '+Math.round(sent/Math.max(1,total)*100)+'%…';},onExpiry:id=>{
+const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(sent,total)=>{if(sendingWorkspaceKey===workspaceKey())$('status').textContent='Uploading '+Math.round(sent/Math.max(1,total)*100)+'%…';},onExpiry:id=>{
   const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));expireWorkspace(id);renderHistory();
 }});
 async function api(path,data,auth=active){
@@ -252,6 +290,14 @@ function renderFileControls() {
     }
     return chip;
   }));
+  renderSendHint();
+}
+function renderSendHint(){
+  if(sending&&sendingWorkspaceKey!==workspaceKey())$('send-hint').textContent='Sending your earlier request in another workspace. Your current draft is preserved.';
+  else if(missingAnalysisLink)$('send-hint').textContent='Start a new analysis here to send this question.';
+  else if(unavailableWorkspace)$('send-hint').textContent='This unavailable analysis cannot accept follow-ups.';
+  else if(!active)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
+  else $('send-hint').textContent=['running','queued'].includes(latest?.status)?'Follow-ups will run after the current analysis.':'You can return to this conversation from this browser.';
 }
 function dockProjectionLegend(open){
   const legend=$('color-legend'),dock=$('legend-dock'),plot=$('legacy-projector').parentElement;
@@ -265,7 +311,10 @@ function resetEmbedding() {
   pointColoring=null;colorVersion='null';$('color-legend').hidden=true;
   autoViewVersion=null;selectedCardId=null;previewSelectedGroup=false;trajectoryGroup=[];$('trajectory-card').hidden=true;
   projectionGeneration++;pendingNativeSelection=null;legacyApi?.cancel();legacyApi=null;legacyVersion=null;legacyMode=false;
-  $('legacy-projector').removeAttribute('src');$('legacy-projector').hidden=true;$('plot').hidden=false;
+  // A src change on an existing frame adds a nested browser-history entry.
+  // Recreate its empty browsing context when changing datasets instead.
+  const oldFrame=$('legacy-projector'),freshFrame=oldFrame.cloneNode(false);
+  freshFrame.removeAttribute('src');freshFrame.hidden=true;oldFrame.replaceWith(freshFrame);$('plot').hidden=false;
   $('legacy-projector').parentElement.classList.remove('legacy');
   cancelProjection(); embedding=null; embeddingId=null; projectedEmbedding=null;
   embeddingArtifactsVersion=null;
@@ -304,7 +353,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=9e40346669975800';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d170aafdf47b899c';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -378,7 +427,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=9e40346669975800', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=d170aafdf47b899c', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -441,8 +490,9 @@ async function submitQuestion(question) {
   if(loadingWorkspace)throw new Error('Wait for this analysis to load before sending a follow-up.');
   if (!question.trim()) throw new Error('Enter your question first.');
 
-  const originKey=workspaceKey();
-  sending = true; $('send').disabled = true;renderFileControls();
+  const originKey=workspaceKey(),originJob=active,originCreationKey=creationKey;
+  let submittedJob=originJob;
+  sending = true;sendingWorkspaceKey=originKey; $('send').disabled = true;renderFileControls();
   try {
     let q = question.trim();
     const demoRequest=q.match(/\b(?:use|try|load|show|give)\b(?:(?!\b(?:no|without)\b)[^.!?]){0,50}\b(?:demo|sample)\b|^(?:demo|sample)(?: data)?[.!?]?$/i);
@@ -450,26 +500,37 @@ async function submitQuestion(question) {
     if(!files.length&&demoRequest&&!demoNegated){
       await loadSample(false);
     }
-    if(sampleFile&&files.includes(sampleFile)&&(!active||pendingFiles.includes(sampleFile)))q+='\n\nDemo dataset context:\n'+sampleContext;
+    if(workspaceKey()!==originKey)throw new Error('The workspace changed before your request was sent. Return to its draft to retry.');
+    if(sampleFile&&files.includes(sampleFile)&&(!originJob||pendingFiles.includes(sampleFile)))q+='\n\nDemo dataset context:\n'+sampleContext;
     started=true;showJourney();$('status').textContent='Sending your question…';
     const selection=selected.size?{ids:[...selected],totalCount:selected.size}:null;
-    if (!active) {
-      active = await api('/api/jobs', {files, question: q, creationKey,selection}, null);
-      active.title=question.trim().slice(0,70);remember(active); history.replaceState(null, '', './#job=' + active.id);
+    if (!originJob) {
+      const created=await api('/api/jobs', {files:[...files], question:q, creationKey:originCreationKey,selection}, null);
+      submittedJob={...created,title:question.trim().slice(0,70),sourceDraftKey:originKey};remember(submittedJob);
+      if(workspaceKey()===originKey){active=submittedJob;sendingWorkspaceKey=active.id;writeWorkspaceAddress('replace');}
     } else {
-      if (!pendingFollowup || pendingFollowup.job !== active.id || pendingFollowup.question !== q||JSON.stringify(pendingFollowup.selection)!==JSON.stringify(selection))
-        pendingFollowup = {job: active.id, question: q, selection,requestId: crypto.randomUUID()};
-      await api(`/api/jobs/${active.id}/messages`, {question: q, selection:pendingFollowup.selection,requestId: pendingFollowup.requestId,...(pendingFiles.length?{files:pendingFiles}:{})});
-      pendingFollowup = null;pendingFiles=[];
+      if (!pendingFollowup || pendingFollowup.job !== originJob.id || pendingFollowup.question !== q||JSON.stringify(pendingFollowup.selection)!==JSON.stringify(selection))
+        pendingFollowup = {job:originJob.id, question:q, selection,requestId:crypto.randomUUID()};
+      await api(`/api/jobs/${originJob.id}/messages`, {question:q, selection:pendingFollowup.selection,requestId:pendingFollowup.requestId,...(pendingFiles.length?{files:[...pendingFiles]}:{})},originJob);
+      pendingFollowup=null;if(active?.id===originJob.id)pendingFiles=[];
     }
-    workspaceDrafts.delete(originKey);
-    if($('question').value===question)$('question').value='';
-    renderDraftHistory();error(null);await refresh();
-    return {id: active.id, status: latest?.status};
+    const draft=workspaceDrafts.get(originKey);
+    if(draft){
+      const remaining={question:draft.question===question?'':draft.question,selection:draft.selection,projection:draft.projection,projectionSettings:draft.projectionSettings};
+      workspaceDrafts.set(submittedJob.id,remaining);
+    }
+    if(!originJob)workspaceDrafts.delete(originKey);
+    if(active?.id===submittedJob.id){
+      if($('question').value===question)$('question').value='';
+      error(null);await refresh();
+    }
+    renderDraftHistory();
+    return {id:submittedJob.id,status:active?.id===submittedJob.id?latest?.status:'submitted'};
   } catch(err){
+    if(workspaceKey()!==originKey&&active?.id!==submittedJob?.id)throw new Error('The request from the previous workspace could not be sent. Return to its draft to retry. '+err.message);
     if(!unavailableWorkspace)$('status').textContent='Submission interrupted · your draft is preserved';
     throw err;
-  } finally { if(!active)started=files.length>0;showJourney();sending = false; $('send').disabled = false;renderFileControls(); }
+  } finally { sending=false;sendingWorkspaceKey=null;if(!active)started=files.length>0;showJourney();renderFileControls(); }
 }
 $('composer').onsubmit = event => { event.preventDefault(); submitQuestion($('question').value).catch(error); };
 $('cancel').onclick = async () => {
@@ -502,7 +563,7 @@ function render(job) {
   $('status').textContent = status[job.status] || job.status;
   $('cancel').hidden = !['queued', 'running', 'cancelling'].includes(job.status);
   renderFileControls();
-  $('send-hint').textContent = ['running','queued'].includes(job.status) ? 'Follow-ups will run after the current analysis.' : 'You can return to this conversation from this browser.';
+  renderSendHint();
   if (!files.length&&job.files.length) setFiles(job.files);
   const restoredDraft=draftToRestore;draftToRestore=null;
   if(restoredDraft)selected=new Set(restoredDraft.selection);
@@ -932,6 +993,8 @@ function jumpObservation(){const input=$('trajectory-observation');if(input.repo
 $('trajectory-observation-go').onclick=jumpObservation;
 $('trajectory-observation').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();jumpObservation();}};
 $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajectory-play').textContent=trajectoryRunning?'Pause':'Play';clearTimeout(trajectoryTimer);if(trajectoryRunning)animateTrajectory();};
+if(!missingAnalysisLink)writeWorkspaceAddress('replace');
+else {history.replaceState({sptWorkspace:workspaceKey()},'',location.href);lastBrowserAddress=browserAddress();}
 renderHistory();showJourney();
 if(active){loadingWorkspace=true;$('status').textContent='Loading analysis…';renderFileControls();refresh();}else {
   draw();
