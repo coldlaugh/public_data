@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=130789fc9ee3ffb5";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=130789fc9ee3ffb5";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=130789fc9ee3ffb5';
-import {artifactVersion} from './artifact-links.js?v=130789fc9ee3ffb5';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=130789fc9ee3ffb5';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=130789fc9ee3ffb5';
-import {createColoring} from './coloring.js?v=130789fc9ee3ffb5';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=465bcd474970bece";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=465bcd474970bece";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=465bcd474970bece';
+import {artifactVersion} from './artifact-links.js?v=465bcd474970bece';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=465bcd474970bece';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=465bcd474970bece';
+import {createColoring} from './coloring.js?v=465bcd474970bece';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -50,8 +50,13 @@ function renderHistory() {
   $('conversation-list').replaceChildren(...savedJobs().reverse().map(job=>{const b=document.createElement('button');b.textContent=job.title||'Analysis '+job.id.slice(0,10);b.className=active?.id===job.id?'current':'';b.onclick=()=>{$('history').value=job.id;$('history').onchange();sidebar(false);};return b;}));
 }
 $('history').onchange = async () => { const job=savedJobs().find(j=>j.id===$('history').value); if(!job)return; clearTimeout(pollTimer); active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;resetEmbedding();setFiles([]);showJourney();history.replaceState(null,'','./#job='+job.id); await refresh(); };
-function sidebar(open){$('session-sidebar').hidden=!open;$('toggle-sidebar').setAttribute('aria-expanded',String(open));}
+function sidebar(open){
+  const panel=$('session-sidebar'),wasOpen=!panel.hidden,hadFocus=panel.contains(document.activeElement);
+  panel.hidden=!open;$('toggle-sidebar').setAttribute('aria-expanded',String(open));
+  if(open)$('close-sidebar').focus();else if(wasOpen&&hadFocus)$('toggle-sidebar').focus();
+}
 $('toggle-sidebar').onclick=()=>sidebar($('session-sidebar').hidden);$('close-sidebar').onclick=()=>sidebar(false);
+$('session-sidebar').onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();sidebar(false);}};
 function showJourney(){
   const talking=!!active||started;main.classList.toggle('onboarding',!talking);$('welcome').hidden=talking;
   const destination=talking?$('data-panel'):$('welcome-upload');
@@ -185,7 +190,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=130789fc9ee3ffb5';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=465bcd474970bece';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -238,7 +243,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=130789fc9ee3ffb5', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=465bcd474970bece', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -594,13 +599,16 @@ function focusLatest(){
 }
 $('latest-message').onclick=focusLatest;
 $('messages').addEventListener('scroll',()=>{const last=$('messages').lastElementChild;if(!last)return;const r=last.getBoundingClientRect(),box=$('messages').getBoundingClientRect();$('latest-message').hidden=r.top<box.bottom&&r.bottom>box.top;},{passive:true});
-let trajectoryFrame=0,trajectoryRunning=true,trajectoryTimer=null,trajectoryPath=[],trajectoryTimes=[];
+let trajectoryFrame=0,trajectoryRunning=true,trajectoryTimer=null,trajectoryPath=[],trajectoryTimes=[],trajectoryReturnFocus=null;
 function showTrajectory(ids){
   if(ids.length!==1){$('trajectory-card').hidden=true;selectedCardId=null;clearTimeout(trajectoryTimer);return;}
   const track=points.find(t=>t.key===ids[0]),vector=embedding?.points.find(p=>p.id===ids[0]);
   if(!track&&!vector){$('trajectory-card').hidden=true;selectedCardId=null;clearTimeout(trajectoryTimer);return;}
-  if(selectedCardId===ids[0]&&!$('trajectory-card').hidden)return;selectedCardId=ids[0];trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
-  $('trajectory-title').textContent=ids[0];$('trajectory-card').hidden=false;$('trajectory-play').textContent='Pause';
+  if(selectedCardId===ids[0]&&!$('trajectory-card').hidden)return;
+  const focused=document.activeElement;
+  if(!$('trajectory-card').contains(focused))trajectoryReturnFocus=focused===document.body?null:focused;
+  selectedCardId=ids[0];trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
+  $('trajectory-title').textContent=ids[0];$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
   $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
   $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=!available;
@@ -618,7 +626,17 @@ function animateTrajectory(){
   $('trajectory-frame').textContent=`Observation ${trajectoryFrame+1} / ${coords.length}`+(trajectoryTimes.length?` · t = ${trajectoryTimes[trajectoryFrame]} s`:'');
   if(trajectoryRunning){trajectoryFrame=(trajectoryFrame+1)%coords.length;trajectoryTimer=setTimeout(animateTrajectory,Math.max(16,4000/coords.length));}
 }
-$('close-trajectory').onclick=()=>{$('trajectory-card').hidden=true;selectedCardId=null;clearTimeout(trajectoryTimer);};
+function closeTrajectory(){
+  $('trajectory-card').hidden=true;selectedCardId=null;clearTimeout(trajectoryTimer);
+  const target=trajectoryReturnFocus;trajectoryReturnFocus=null;
+  if(target?.isConnected&&!target.disabled&&!target.closest('[hidden]')){
+    if($('view-panel').contains(target))$('view-panel').open=true;
+    if(target.getClientRects().length){target.focus();return;}
+  }
+  $('view-panel').querySelector('summary').focus();
+}
+$('close-trajectory').onclick=closeTrajectory;
+$('trajectory-card').onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeTrajectory();}};
 $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajectory-play').textContent=trajectoryRunning?'Pause':'Play';clearTimeout(trajectoryTimer);if(trajectoryRunning)animateTrajectory();};
 renderHistory();showJourney();
 if(active)refresh();else {
