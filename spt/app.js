@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=93c4fb5c85953c3d";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=93c4fb5c85953c3d";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=93c4fb5c85953c3d';
-import {artifactVersion} from './artifact-links.js?v=93c4fb5c85953c3d';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=93c4fb5c85953c3d';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=93c4fb5c85953c3d';
-import {createColoring} from './coloring.js?v=93c4fb5c85953c3d';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=76c8d4d2dc9fa718";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=76c8d4d2dc9fa718";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=76c8d4d2dc9fa718';
+import {artifactVersion} from './artifact-links.js?v=76c8d4d2dc9fa718';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=76c8d4d2dc9fa718';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=76c8d4d2dc9fa718';
+import {createColoring} from './coloring.js?v=76c8d4d2dc9fa718';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -284,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=93c4fb5c85953c3d';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=76c8d4d2dc9fa718';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=93c4fb5c85953c3d', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=76c8d4d2dc9fa718', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -501,12 +501,20 @@ function render(job) {
   lastSignature = signature;
   const nearBottom = $('latest-message').hidden;
   const expanded=new Set([...$('messages').querySelectorAll('details[open][data-step]')].map(e=>e.dataset.step));
+  const expandedSelections=new Set([...$('messages').querySelectorAll('details[open][data-selection]')].map(e=>e.dataset.selection));
   const progressEvents=job.events.filter(e=>e.kind==='summary'&&e.summary)
     .sort((a,b)=>a.turn-b.turn||a.order-b.order||a.id-b.id);
   const blocks=[];
   for(const [turn,t] of job.turns.entries()){
     const display=questionForDisplay(t),userBubble=message(t.requestId?.startsWith('operator-recovery-')?'RECOVERY':'YOU',display.text);
     if(display.selection){const badge=document.createElement('small'),s=display.selection;badge.className='selection-context';badge.textContent=s.legacy?'Trajectory selection attached':s.totalCount>s.ids.length?`First ${s.ids.length} of ${s.totalCount} selected trajectories attached`:`${s.ids.length} selected trajector${s.ids.length===1?'y':'ies'} attached`;userBubble.append(badge);}
+    if(display.selection?.ids?.length){
+      const details=document.createElement('details');details.className='selection-ids';details.dataset.selection=job.id+':'+turn;details.open=expandedSelections.has(details.dataset.selection);
+      const summary=document.createElement('summary');summary.textContent='View attached trajectory IDs';
+      const note=document.createElement('p');note.textContent='These IDs were attached at submission. Changing the current view does not change this question.';
+      const ids=document.createElement('pre');ids.textContent=display.selection.ids.join('\n');
+      details.append(summary,note,ids);userBubble.append(details);
+    }
     blocks.push(userBubble);
     for(const e of progressEvents.filter(e=>e.turn===turn)){
       const bubble=document.createElement('details');
