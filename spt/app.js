@@ -1,14 +1,15 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d0ee60ab139c5fff";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d0ee60ab139c5fff";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d0ee60ab139c5fff';
-import {artifactVersion} from './artifact-links.js?v=d0ee60ab139c5fff';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d0ee60ab139c5fff';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d0ee60ab139c5fff';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d0ee60ab139c5fff';
-import {createColoring} from './coloring.js?v=d0ee60ab139c5fff';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d0ee60ab139c5fff';
-import {createViewRecovery} from './view-recovery.js?v=d0ee60ab139c5fff';
-import {createAgentTools} from './agent-tools.js?v=d0ee60ab139c5fff';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=ef5d13e705375696";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=ef5d13e705375696";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=ef5d13e705375696';
+import {artifactVersion} from './artifact-links.js?v=ef5d13e705375696';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=ef5d13e705375696';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=ef5d13e705375696';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=ef5d13e705375696';
+import {createColoring} from './coloring.js?v=ef5d13e705375696';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=ef5d13e705375696';
+import {createViewRecovery} from './view-recovery.js?v=ef5d13e705375696';
+import {createAgentTools} from './agent-tools.js?v=ef5d13e705375696';
+import {createAgentReceipts} from './agent-receipts.js?v=ef5d13e705375696';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -31,6 +32,13 @@ const viewRecovery=createViewRecovery({getItem:key=>sessionStorage.getItem(key),
 let viewRecoveryFailed=false;
 let draftToRestore=null,loadingWorkspace=false,unavailableWorkspace=false,recoveryDraftKey=null,missingRecoveryFiles=false,missingAnalysisLink=false;
 let connectionError=null;
+let lastRefreshAttempt=null,lastRefreshSuccess=null;
+const agentDraftIds=new Map();
+function agentWorkspaceId(){
+  if(active)return active.id;
+  if(!agentDraftIds.has(creationKey))agentDraftIds.set(creationKey,'draft:'+crypto.randomUUID());
+  return agentDraftIds.get(creationKey);
+}
 let projectorClientId;
 try { projectorClientId=sessionStorage.getItem('spt.projector.client'); } catch {}
 if(!/^[0-9a-f]{32}$/.test(projectorClientId||''))projectorClientId=crypto.randomUUID().replaceAll('-','');
@@ -369,7 +377,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d0ee60ab139c5fff';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=ef5d13e705375696';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -459,7 +467,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d0ee60ab139c5fff', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=ef5d13e705375696', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -515,7 +523,7 @@ async function loadSample(stageQuestion=true) {
 }
 $('sample').onclick = () => loadSample().catch(error);
 $('new').onclick=()=>{if(sending)return;saveWorkspaceDraft();openUnsentWorkspace();sidebar(false);};
-async function submitQuestion(question) {
+async function submitQuestion(question,{followupRequestId=null}={}) {
   if (sending) throw new Error('A request is already being sent.');
   if(missingAnalysisLink)throw new Error('This browser cannot open the linked analysis. Choose Start a new analysis here to send this question separately.');
   if(unavailableWorkspace)throw new Error('Continue in a new analysis before sending another question.');
@@ -541,8 +549,8 @@ async function submitQuestion(question) {
       submittedJob={...created,title:question.trim().slice(0,70),sourceDraftKey:originKey};remember(submittedJob);
       if(workspaceKey()===originKey){active=submittedJob;sendingWorkspaceKey=active.id;writeWorkspaceAddress('replace');}
     } else {
-      if (!pendingFollowup || pendingFollowup.job !== originJob.id || pendingFollowup.question !== q||JSON.stringify(pendingFollowup.selection)!==JSON.stringify(selection))
-        pendingFollowup = {job:originJob.id, question:q, selection,requestId:crypto.randomUUID()};
+      if (!pendingFollowup || pendingFollowup.job !== originJob.id || pendingFollowup.question !== q||JSON.stringify(pendingFollowup.selection)!==JSON.stringify(selection)||followupRequestId&&pendingFollowup.requestId!==followupRequestId)
+        pendingFollowup = {job:originJob.id, question:q, selection,requestId:followupRequestId||crypto.randomUUID()};
       await api(`/api/jobs/${originJob.id}/messages`, {question:q, selection:pendingFollowup.selection,requestId:pendingFollowup.requestId,...(pendingFiles.length?{files:[...pendingFiles]}:{})},originJob);
       pendingFollowup=null;if(active?.id===originJob.id)pendingFiles=[];
     }
@@ -557,7 +565,7 @@ async function submitQuestion(question) {
       error(null);await refresh();
     }
     renderDraftHistory();
-    return {id:submittedJob.id,status:active?.id===submittedJob.id?latest?.status:'submitted'};
+    return {id:submittedJob.id,status:'submitted'};
   } catch(err){
     if(workspaceKey()!==originKey&&active?.id!==submittedJob?.id)throw new Error('The request from the previous workspace could not be sent. Return to its draft to retry. '+err.message);
     if(!unavailableWorkspace)$('status').textContent='Submission interrupted · your draft is preserved';
@@ -724,9 +732,11 @@ async function refresh() {
   clearTimeout(pollTimer);
   if (!active||unavailableWorkspace) return;
   const target = active;
+  lastRefreshAttempt={id:target.id,at:new Date().toISOString()};
   try {
     const job = await api('/api/jobs/' + target.id, undefined, target);
     if (active?.id === target.id&&!unavailableWorkspace) {
+      lastRefreshSuccess={id:target.id,at:new Date().toISOString()};
       if(connectionError&&$('error').textContent===connectionError)error(null);
       render(job);
       projectorBridge.tick(job,target).catch(()=>{}); // Cached result retries on next poll.
@@ -876,9 +886,9 @@ $('show-chat').onclick=()=>{panels(true,true);$('hide-chat').focus();};
 
 function agentWorkspace(){
   const projection=projectorState(),job=latest?.id===active?.id?latest:null;
-  return {workspaceId:workspaceKey(),files:files.map(f=>f.name),job:active?.id||null,status:job?.status||null,
+  return {workspaceId:agentWorkspaceId(),files:files.map(f=>f.name),job:active?.id||null,status:job?.status||null,
     loading:loadingWorkspace,sending,available:!unavailableWorkspace&&!missingAnalysisLink,
-    connectionWarning:connectionError||null,error:$('error').textContent||null,draftPresent:!!$('question').value.trim(),
+    connectionWarning:connectionError||null,sync:{state:unavailableWorkspace||missingAnalysisLink?'unavailable':loadingWorkspace?'loading':connectionError?'interrupted':active?'connected':'idle',lastSuccessfulRefreshAt:active&&lastRefreshSuccess?.id===active.id?lastRefreshSuccess.at:null,lastAttemptAt:active&&lastRefreshAttempt?.id===active.id?lastRefreshAttempt.at:null,serverUpdatedAt:job?.updated??null},error:$('error').textContent||null,draftPresent:!!$('question').value.trim(),
     selectedTrackIds:[...selected],inventoryScope:'Browser preview and published encoder vectors; original files may contain additional tracks.',knownTrackCount:new Set([...points.map(p=>p.key),...(embedding?.points||[]).map(p=>p.id)]).size,
     projection:{method:projection.projection,ready:projection.projectionReady,available:projection.availableProjections,
       pointCount:projection.pointCount,notice:$('projection-notice').hidden?null:$('projection-notice').textContent}};
@@ -896,7 +906,8 @@ if(document.modelContext?.registerTool){
     analysis:()=>{const job=latest?.id===active?.id?latest:null;return {status:job?.status||null,turns:job?.turns||[],
       artifacts:(job?.artifacts||[]).map(file=>({id:file.id,name:file.name,responseIndex:file.turn??0,
         latestVersion:!artifactVersion(file,job.artifacts).superseded,outcome:artifactOutcome(file,job)?.label||'Available'}))};},
-    stageSample:()=>loadSample(),project:setProjection,select:selectTracks,submit:submitQuestion};
+    stageSample:()=>loadSample(),project:setProjection,select:selectTracks,submit:(question,options)=>submitQuestion(question,{followupRequestId:options?.requestId}),
+    receipts:createAgentReceipts({getItem:key=>sessionStorage.getItem(key),setItem:(key,value)=>sessionStorage.setItem(key,value)})};
   for(const tool of createAgentTools(context))Promise.resolve(document.modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{});
   window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});
 }
