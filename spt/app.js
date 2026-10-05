@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=b78950ea2ce71f51";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=b78950ea2ce71f51";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=b78950ea2ce71f51';
-import {artifactVersion} from './artifact-links.js?v=b78950ea2ce71f51';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=b78950ea2ce71f51';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=b78950ea2ce71f51';
-import {createColoring} from './coloring.js?v=b78950ea2ce71f51';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=0af18fdd96980684";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=0af18fdd96980684";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=0af18fdd96980684';
+import {artifactVersion} from './artifact-links.js?v=0af18fdd96980684';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=0af18fdd96980684';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=0af18fdd96980684';
+import {createColoring} from './coloring.js?v=0af18fdd96980684';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -241,7 +241,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=b78950ea2ce71f51';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=0af18fdd96980684';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -273,9 +273,11 @@ async function setProjection(method) {
     if(request!==projectionGeneration)return {cancelled:true};
     const plan=planProjectionSelection(selectionToSync,embedding.points.map(p=>p.id),legacyApi.isFiltered()?legacyApi.visibleTrackIds():null);
     if(plan.restoreAll)legacyApi.restoreAll();
-    legacyApi.select(plan.ids);selectionToSync=null;
+    legacyApi.select(plan.ids);
     const result=await legacyApi.project(method);
     if(request!==projectionGeneration||result.cancelled)return {cancelled:true};
+    // Initial load starts in PCA; changing the native projection can clear its selection.
+    legacyApi.select(plan.ids);selectionToSync=null;
     legacyApi.color(pointColoring?[...pointColoring.colors]:null);
     $('projection').value=method;updatePlotHelp(method);$('plot-title').textContent='SPT projector';$('projection-settings').hidden=false;updateTrackFinder();updateLegendScope();
     return result;
@@ -294,7 +296,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=b78950ea2ce71f51', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=0af18fdd96980684', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
