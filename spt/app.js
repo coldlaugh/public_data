@@ -1,13 +1,13 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=b1f6d1234906dc79";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=b1f6d1234906dc79";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=b1f6d1234906dc79';
-import {artifactVersion} from './artifact-links.js?v=b1f6d1234906dc79';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=b1f6d1234906dc79';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=b1f6d1234906dc79';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=b1f6d1234906dc79';
-import {createColoring} from './coloring.js?v=b1f6d1234906dc79';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=b1f6d1234906dc79';
-import {createViewRecovery} from './view-recovery.js?v=b1f6d1234906dc79';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=0fec3346b8ebf1fd";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=0fec3346b8ebf1fd";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=0fec3346b8ebf1fd';
+import {artifactVersion} from './artifact-links.js?v=0fec3346b8ebf1fd';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=0fec3346b8ebf1fd';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=0fec3346b8ebf1fd';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=0fec3346b8ebf1fd';
+import {createColoring} from './coloring.js?v=0fec3346b8ebf1fd';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=0fec3346b8ebf1fd';
+import {createViewRecovery} from './view-recovery.js?v=0fec3346b8ebf1fd';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -217,11 +217,11 @@ function projectorState() {
 function setColoring(spec){
   pointColoring=createColoring(spec,[...new Set([...points.map(p=>p.key),...(embedding?.points||[]).map(p=>p.id)])]);
   updateTrajectoryMeasurement();legacyApi?.color(pointColoring?[...pointColoring.colors]:null);draw();
-  const legend=$('color-legend');legend.replaceChildren();legend.hidden=!pointColoring;
+  const legend=$('color-legend');legend.replaceChildren();legend.hidden=!pointColoring;dockProjectionLegend(!!pointColoring);
   if(!pointColoring)return;
   const title=document.createElement('strong');title.textContent=spec.label+(spec.units?' ('+spec.units+')':'');legend.append(title);
   const items=document.createElement('div');items.className='color-entries';
-  for(const entry of pointColoring.entries){const item=document.createElement('span'),swatch=document.createElement('i');swatch.style.background=entry.color;item.append(swatch,document.createTextNode(entry.label));items.append(item);}
+  for(const entry of pointColoring.entries){const item=document.createElement('span'),swatch=document.createElement('i'),label=document.createElement('span');swatch.style.background=entry.color;label.className='color-label';label.textContent=entry.label;item.append(swatch,label);items.append(item);}
   if(spec.kind==='numeric'){const ramp=document.createElement('div');ramp.className='color-ramp';ramp.style.background='linear-gradient(90deg,'+pointColoring.ramp.join(',')+')';ramp.title=pointColoring.spec.palette+' · higher values are lighter';legend.append(ramp);}
   legend.append(items);legend.append(document.createElement('small'));updateLegendScope();
 }
@@ -355,7 +355,7 @@ async function setProjection(method,settings=null) {
   legacyApi?.cancel();
   if(method==='raw'){
     pendingNativeSelection=null;
-    dockProjectionLegend(false);
+    dockProjectionLegend(!!pointColoring);
     $('projection-notice').hidden=true;
     for(const option of $('projection').options)option.disabled=option.value!=='raw'&&!embedding;
     legacyMode=false;$('legacy-projector').hidden=true;$('plot').hidden=false;
@@ -368,7 +368,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=b1f6d1234906dc79';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=0fec3346b8ebf1fd';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -393,7 +393,7 @@ async function setProjection(method,settings=null) {
     });
     legacyApi.onChange=snapshot=>{
       if(!legacyMode)return;
-      dockProjectionLegend(true);
+      dockProjectionLegend(!!pointColoring);
       if(snapshot.controlsChanged){if(selectionToSync===null){saveWorkspaceDraft();renderSendHint();}return;}
       if(selectionToSync!==null&&snapshot.selectionChanged)selectionToSync=snapshot.selectedTrackIds;
       const ids=selectionToSync??snapshot.selectedTrackIds;
@@ -458,7 +458,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=b1f6d1234906dc79', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=0fec3346b8ebf1fd', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
