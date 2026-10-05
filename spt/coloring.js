@@ -30,7 +30,16 @@ export function createColoring(spec, knownIds) {
     color=v=>{const t=max===min?.5:(v-min)/(max-min);
       return '#'+stops[0].map((n,i)=>Math.round(n+(stops[1][i]-n)*t).toString(16).padStart(2,'0')).join('');};
     ramp=max===min?[color(min),color(min)]:endpoints;
-    entries=[{label:String(Number(min.toPrecision(4))),color:color(min)},{label:String(Number(max.toPrecision(4))),color:color(max)}];
+    const endpointLabel=(value,digits)=>{
+      const rounded=Number(value.toPrecision(digits));
+      return String(Number.isFinite(rounded)?rounded:value);
+    };
+    let digits=4,labels=[endpointLabel(min,digits),endpointLabel(max,digits)];
+    // Preserve a readable range even when four significant digits collapse it.
+    while(min!==max&&labels[0]===labels[1]&&digits<17){
+      digits++;labels=[endpointLabel(min,digits),endpointLabel(max,digits)];
+    }
+    entries=[{label:labels[0],color:color(min)},{label:labels[1],color:color(max)}];
   } else if (spec.kind==='categorical') {
     const paletteName=spec.palette??'balanced';
     if(!Object.hasOwn(categoricalPalettes,paletteName))throw new Error('Choose balanced, bright, or muted for categories.');
