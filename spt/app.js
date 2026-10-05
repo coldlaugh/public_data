@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=8436eaf7c25a46c5";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8436eaf7c25a46c5";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8436eaf7c25a46c5';
-import {artifactVersion} from './artifact-links.js?v=8436eaf7c25a46c5';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=8436eaf7c25a46c5';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8436eaf7c25a46c5';
-import {createColoring} from './coloring.js?v=8436eaf7c25a46c5';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=fda998162b4ca5a9";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=fda998162b4ca5a9";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=fda998162b4ca5a9';
+import {artifactVersion} from './artifact-links.js?v=fda998162b4ca5a9';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=fda998162b4ca5a9';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=fda998162b4ca5a9';
+import {createColoring} from './coloring.js?v=fda998162b4ca5a9';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -194,7 +194,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8436eaf7c25a46c5';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=fda998162b4ca5a9';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -247,7 +247,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=8436eaf7c25a46c5', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=fda998162b4ca5a9', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -469,7 +469,7 @@ function preview(keepSelection=false) {
   for (const file of files) {
     if (!/\.(csv|tsv)$/i.test(file.name)) continue;
     // Large datasets are preprocessed by the agent; avoid splitting millions of rows on the UI thread.
-    if ((file.bytes??file.data.length*3/4)>16*1024*1024) continue;
+    if ((file.bytes??file.data.length*3/4)>16*1024*1024){warnings.push(file.name+': automatic preview of the original file is deferred above 16 MiB. The complete file remains in the dataset for analysis.');continue;}
     try{
       const parsed=parseTrajectoryTable(decode(file.data),file.name);points.push(...parsed.tracks);
       if(parsed.skippedRows)warnings.push(file.name+': preview skipped '+parsed.skippedRows+' row'+(parsed.skippedRows===1?'':'s')+' with missing or invalid IDs, coordinates or timestamps.');
@@ -481,8 +481,8 @@ function preview(keepSelection=false) {
   points=rawPreviewTracks(points,originalPoints,keepSelection);
   $('preview-warning').textContent=warnings.join(' ')+(warnings.length?' The original uploaded files are unchanged.':'');$('preview-warning').hidden=!warnings.length;
   $('plot-empty').hidden=points.length>0;
-  $('plot-empty').textContent=files.length?'No automatic spatial preview for this file format. The agent can still inspect and preprocess it.':'Upload trajectories to inspect their paths. You can ask a question without selecting points.';
-  $('plot-meta').textContent=points.length?`${points.length} trajectories · x/y in µm`:'No spatial preview';
+  $('plot-empty').textContent=files.length?'No spatial trajectories are available for an automatic browser preview. The agent can still inspect and preprocess these files.':'Upload trajectories to inspect their paths. You can ask a question without selecting points.';
+  $('plot-meta').textContent=points.length?`${points.length} trajector${points.length===1?'y':'ies'} · x/y in µm`:'No spatial preview';
   updateTrackFinder();updateLegendScope();draw();
 }
 let finderTracks=[],finderScopeIds;
