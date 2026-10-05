@@ -30,11 +30,13 @@ const numeric=value=>{
 
 export function parseTrajectoryTable(text,filename){
   const timing={duplicateTimes:0,duplicateTimeTracks:0,reorderedTracks:0};
-  const expectedSeparator=/\.tsv$/i.test(filename)?'\t':',',alternateSeparator=expectedSeparator===','?'\t':',';
+  const expectedSeparator=/\.tsv$/i.test(filename)?'\t':',';
   const canonical=rows=>rows?.length&&['track_id','x_um','y_um'].every(name=>rows[0].some(value=>value.trim()===name));
   let rows,separator=expectedSeparator,parseError;
   try{rows=delimitedRows(text,separator);}catch(failure){parseError=failure;}
-  if(!canonical(rows)&&text.split(/[\r\n]/,1)[0].includes(alternateSeparator)){
+  for(const alternateSeparator of [',','\t',';'].filter(value=>value!==expectedSeparator)){
+    if(canonical(rows))break;
+    if(!text.split(/[\r\n]/,1)[0].includes(alternateSeparator))continue;
     try{const alternate=delimitedRows(text,alternateSeparator);if(canonical(alternate)){rows=alternate;separator=alternateSeparator;parseError=null;}}catch{}
   }
   if(parseError)throw parseError;
@@ -44,11 +46,13 @@ export function parseTrajectoryTable(text,filename){
   const missingColumns=['track_id','x_um','y_um'].filter(name=>!columns.includes(name));
   if(missingColumns.length)return {tracks:[],skippedRows:0,missingColumns,...timing};
   if(['x_um','y_um','z_um','track_id','t_s'].some(name=>columns.filter(value=>value===name).length>1))throw new Error('Duplicate trajectory columns.');
-  const byId=new Map();let skippedRows=0,malformedRows=0;
+  const byId=new Map();let skippedRows=0,malformedRows=0,commaNumberRows=0;
   for(const row of rows.slice(1)){
     // A misplaced delimiter can shift otherwise valid numbers into x/y/time.
     // Do not guess the intended columns for an uneven record.
     if(row.length!==columns.length){skippedRows++;malformedRows++;continue;}
+    // A comma may mean a decimal or a grouping separator. Never guess a scale.
+    if([ix,iy,it,iz].some(index=>index>=0&&/^[-+]?[\d.,]*\d[\d.,]*(?:[eE][-+]?\d+)?$/.test(row[index].trim())&&row[index].includes(',')))commaNumberRows++;
     const x=numeric(row[ix]),y=numeric(row[iy]),time=it<0?null:numeric(row[it]),trackId=row[id]?.trim();
     if(!trackId||x===null||y===null||it>=0&&time===null){skippedRows++;continue;}
     if(!byId.has(trackId))byId.set(trackId,[]);
@@ -69,7 +73,7 @@ export function parseTrajectoryTable(text,filename){
     }
     return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time),...(iz>=0?{hasZColumn:true,zValues:observations.map(o=>o.z)}:{})};
   });
-  return {tracks,skippedRows,malformedRows,columnCount:columns.length,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':'comma',...timing};
+  return {tracks,skippedRows,malformedRows,commaNumberRows,columnCount:columns.length,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':separator===';'?'semicolon':'comma',...timing};
 }
 
 // Keep the control bounded without making any tracks inaccessible to a refined search.

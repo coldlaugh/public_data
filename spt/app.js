@@ -1,13 +1,13 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=9bd36016993b8fa9";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=9bd36016993b8fa9";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=9bd36016993b8fa9';
-import {artifactVersion} from './artifact-links.js?v=9bd36016993b8fa9';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=9bd36016993b8fa9';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=9bd36016993b8fa9';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=9bd36016993b8fa9';
-import {createColoring} from './coloring.js?v=9bd36016993b8fa9';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=9bd36016993b8fa9';
-import {createViewRecovery} from './view-recovery.js?v=9bd36016993b8fa9';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=c116541dad1ceca9";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=c116541dad1ceca9";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=c116541dad1ceca9';
+import {artifactVersion} from './artifact-links.js?v=c116541dad1ceca9';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=c116541dad1ceca9';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=c116541dad1ceca9';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=c116541dad1ceca9';
+import {createColoring} from './coloring.js?v=c116541dad1ceca9';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=c116541dad1ceca9';
+import {createViewRecovery} from './view-recovery.js?v=c116541dad1ceca9';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -368,7 +368,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=9bd36016993b8fa9';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=c116541dad1ceca9';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -458,7 +458,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=9bd36016993b8fa9', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=c116541dad1ceca9', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -753,6 +753,7 @@ function preview(keepSelection=false) {
       if(parsed.empty)warnings.push(file.name+': no header or observation rows were found. Check that the export contains data.');
       if(parsed.headerOnly)warnings.push(file.name+': trajectory headers were found, but there are no observation rows. Check that the export contains data.');
       if(parsed.delimiterMismatch)warnings.push(file.name+': preview detected '+parsed.delimiter+'-separated data despite its file extension. The trajectory columns were recognized.');
+      if(parsed.commaNumberRows)warnings.push(file.name+': preview found '+parsed.commaNumberRows+' row'+(parsed.commaNumberRows===1?'':'s')+' with comma-formatted coordinates or timestamps. These values were not interpreted: use decimal points and no thousands separators for numeric preview fields. Describe the original number format in your question.');
       if(parsed.missingColumns?.length&&!normalizedPreview)warnings.push(file.name+': not shown in this preview because its headers do not include '+parsed.missingColumns.join(', ')+'. Describe its columns and units in your question so the agent can normalize it. Do not rename pixel coordinates to x_um/y_um without converting to micrometers.');
       if(parsed.tracks.length&&!parsed.hasTimestamps)warnings.push(file.name+': spatial preview only; no t_s timestamp column was found. Describe the time between frames and any gaps before asking for motion measurements.');
       if(parsed.tracks.some(track=>track.hasZColumn))warnings.push(file.name+': z_um is present. This preview and its animation show only the XY projection; inspect an observation to read its z value. Ask for XYZ measurements to include z in the analysis.');
