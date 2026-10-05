@@ -30,8 +30,15 @@ const numeric=value=>{
 
 export function parseTrajectoryTable(text,filename){
   const timing={duplicateTimes:0,duplicateTimeTracks:0,reorderedTracks:0};
-  const rows=delimitedRows(text,/\.tsv$/i.test(filename)?'\t':',');
-  if(!rows.length)return {tracks:[],skippedRows:0,...timing};
+  const expectedSeparator=/\.tsv$/i.test(filename)?'\t':',',alternateSeparator=expectedSeparator===','?'\t':',';
+  const canonical=rows=>rows?.length&&['track_id','x_um','y_um'].every(name=>rows[0].some(value=>value.trim()===name));
+  let rows,separator=expectedSeparator,parseError;
+  try{rows=delimitedRows(text,separator);}catch(failure){parseError=failure;}
+  if(!canonical(rows)&&text.split(/[\r\n]/,1)[0].includes(alternateSeparator)){
+    try{const alternate=delimitedRows(text,alternateSeparator);if(canonical(alternate)){rows=alternate;separator=alternateSeparator;parseError=null;}}catch{}
+  }
+  if(parseError)throw parseError;
+  if(!rows.length)return {tracks:[],skippedRows:0,empty:true,...timing};
   const columns=rows[0].map(value=>value.trim());
   const ix=columns.indexOf('x_um'),iy=columns.indexOf('y_um'),id=columns.indexOf('track_id'),it=columns.indexOf('t_s');
   const missingColumns=['track_id','x_um','y_um'].filter(name=>!columns.includes(name));
@@ -59,7 +66,7 @@ export function parseTrajectoryTable(text,filename){
     }
     return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time)};
   });
-  return {tracks,skippedRows,hasTimestamps:it>=0,...timing};
+  return {tracks,skippedRows,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':'comma',...timing};
 }
 
 // Keep the control bounded without making any tracks inaccessible to a refined search.
