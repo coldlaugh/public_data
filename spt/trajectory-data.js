@@ -40,10 +40,10 @@ export function parseTrajectoryTable(text,filename){
   if(parseError)throw parseError;
   if(!rows.length)return {tracks:[],skippedRows:0,empty:true,...timing};
   const columns=rows[0].map(value=>value.trim());
-  const ix=columns.indexOf('x_um'),iy=columns.indexOf('y_um'),id=columns.indexOf('track_id'),it=columns.indexOf('t_s');
+  const ix=columns.indexOf('x_um'),iy=columns.indexOf('y_um'),id=columns.indexOf('track_id'),it=columns.indexOf('t_s'),iz=columns.indexOf('z_um');
   const missingColumns=['track_id','x_um','y_um'].filter(name=>!columns.includes(name));
   if(missingColumns.length)return {tracks:[],skippedRows:0,missingColumns,...timing};
-  if(['x_um','y_um','track_id','t_s'].some(name=>columns.filter(value=>value===name).length>1))throw new Error('Duplicate trajectory columns.');
+  if(['x_um','y_um','z_um','track_id','t_s'].some(name=>columns.filter(value=>value===name).length>1))throw new Error('Duplicate trajectory columns.');
   const byId=new Map();let skippedRows=0,malformedRows=0;
   for(const row of rows.slice(1)){
     // A misplaced delimiter can shift otherwise valid numbers into x/y/time.
@@ -52,7 +52,7 @@ export function parseTrajectoryTable(text,filename){
     const x=numeric(row[ix]),y=numeric(row[iy]),time=it<0?null:numeric(row[it]),trackId=row[id]?.trim();
     if(!trackId||x===null||y===null||it>=0&&time===null){skippedRows++;continue;}
     if(!byId.has(trackId))byId.set(trackId,[]);
-    byId.get(trackId).push({x,y,time});
+    byId.get(trackId).push({x,y,time,z:iz<0?null:numeric(row[iz])});
   }
   const tracks=[...byId].map(([id,observations])=>{
     if(it>=0){
@@ -67,7 +67,7 @@ export function parseTrajectoryTable(text,filename){
       if(reordered)timing.reorderedTracks++;
       observations.sort((a,b)=>a.time-b.time);
     }
-    return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time),...(columns.includes('z_um')?{hasZColumn:true}:{})};
+    return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time),...(iz>=0?{hasZColumn:true,zValues:observations.map(o=>o.z)}:{})};
   });
   return {tracks,skippedRows,malformedRows,columnCount:columns.length,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':'comma',...timing};
 }
@@ -86,6 +86,6 @@ export function rawPreviewTracks(parsed,previous,keepSelection){
 
 export function encoderPreviewTrack(point,previous){
   const path=point.xPosition.map((x,i)=>[x,point.yPosition[i]]);
-  const sameObservations=previous?.times?.length===path.length&&previous.path.length===path.length&&previous.path.every(([x,y],i)=>x===path[i][0]&&y===path[i][1]);
-  return {id:point.trackId,key:point.id,file:point.file,path,times:sameObservations?previous.times:[],fromEncoder:true,...(sameObservations&&previous.hasZColumn?{hasZColumn:true}:{})};
+  const sameObservations=previous?.path?.length===path.length&&previous.path.every(([x,y],i)=>x===path[i][0]&&y===path[i][1]);
+  return {id:point.trackId,key:point.id,file:point.file,path,times:sameObservations&&previous.times?.length===path.length?previous.times:[],fromEncoder:true,...(sameObservations&&previous.hasZColumn?{hasZColumn:true,zValues:previous.zValues?.length===path.length?previous.zValues:Array(path.length).fill(null)}:{})};
 }

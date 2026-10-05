@@ -1,13 +1,13 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=32e8d9fe224936d0";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=32e8d9fe224936d0";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=32e8d9fe224936d0';
-import {artifactVersion} from './artifact-links.js?v=32e8d9fe224936d0';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=32e8d9fe224936d0';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=32e8d9fe224936d0';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=32e8d9fe224936d0';
-import {createColoring} from './coloring.js?v=32e8d9fe224936d0';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=32e8d9fe224936d0';
-import {createViewRecovery} from './view-recovery.js?v=32e8d9fe224936d0';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=ab99e018429bafe0";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=ab99e018429bafe0";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=ab99e018429bafe0';
+import {artifactVersion} from './artifact-links.js?v=ab99e018429bafe0';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=ab99e018429bafe0';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=ab99e018429bafe0';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=ab99e018429bafe0';
+import {createColoring} from './coloring.js?v=ab99e018429bafe0';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=ab99e018429bafe0';
+import {createViewRecovery} from './view-recovery.js?v=ab99e018429bafe0';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -368,7 +368,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=32e8d9fe224936d0';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=ab99e018429bafe0';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -457,7 +457,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=32e8d9fe224936d0', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=ab99e018429bafe0', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -754,7 +754,7 @@ function preview(keepSelection=false) {
       if(parsed.delimiterMismatch)warnings.push(file.name+': preview detected '+parsed.delimiter+'-separated data despite its file extension. The trajectory columns were recognized.');
       if(parsed.missingColumns?.length&&!normalizedPreview)warnings.push(file.name+': not shown in this preview because its headers do not include '+parsed.missingColumns.join(', ')+'. Describe its columns and units in your question so the agent can normalize it. Do not rename pixel coordinates to x_um/y_um without converting to micrometers.');
       if(parsed.tracks.length&&!parsed.hasTimestamps)warnings.push(file.name+': spatial preview only; no t_s timestamp column was found. Describe the time between frames and any gaps before asking for motion measurements.');
-      if(parsed.tracks.some(track=>track.hasZColumn))warnings.push(file.name+': z_um is present. This preview and its animation show only the XY projection; motion along z is not displayed. Ask for XYZ measurements to include z in the analysis.');
+      if(parsed.tracks.some(track=>track.hasZColumn))warnings.push(file.name+': z_um is present. This preview and its animation show only the XY projection; inspect an observation to read its z value. Ask for XYZ measurements to include z in the analysis.');
       if(parsed.malformedRows)warnings.push(file.name+': preview skipped '+parsed.malformedRows+' row'+(parsed.malformedRows===1?'':'s')+' whose field count does not match the '+parsed.columnCount+' column headers. Check for extra or missing separators, and quote text that contains a separator.');
       const invalidRows=parsed.skippedRows-(parsed.malformedRows||0);
       if(invalidRows)warnings.push(file.name+': preview skipped '+invalidRows+' row'+(invalidRows===1?'':'s')+' with missing or invalid IDs, coordinates or timestamps.');
@@ -924,7 +924,7 @@ function focusLatest(){
 }
 $('latest-message').onclick=focusLatest;
 $('messages').addEventListener('scroll',()=>{const last=$('messages').lastElementChild;if(!last)return;const r=last.getBoundingClientRect(),box=$('messages').getBoundingClientRect();$('latest-message').hidden=r.top<box.bottom&&r.bottom>box.top;},{passive:true});
-let trajectoryFrame=0,trajectoryRunning=true,trajectoryTimer=null,trajectoryPath=[],trajectoryTimes=[],trajectoryReturnFocus=null;
+let trajectoryFrame=0,trajectoryRunning=true,trajectoryTimer=null,trajectoryPath=[],trajectoryTimes=[],trajectoryZValues=null,trajectoryReturnFocus=null;
 let trajectoryGroup=[],previewSelectedGroup=false,trajectoryChoicesKey=null;
 function renderTrajectoryChoices(id=selectedCardId,force=false){
   const key=JSON.stringify([trajectoryGroup,$('trajectory-search').value]);
@@ -970,11 +970,11 @@ function showTrajectory(ids,openGroup=false,previewId=null){
   if(selectedCardId===id&&!$('trajectory-card').hidden)return;
   const focused=document.activeElement;
   if(!$('trajectory-card').contains(focused))trajectoryReturnFocus=focused===document.body?null:focused;
-  selectedCardId=id;trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
+  selectedCardId=id;trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryZValues=track?.hasZColumn?track.zValues||[]:null;trajectoryFrame=0;trajectoryRunning=true;
   updateTrajectoryMeasurement();$('trajectory-title').textContent=id;$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
   $('trajectory-note').textContent='Each trajectory is fitted independently to this preview. Playback uses uniform observation steps. '+(trajectoryTimes.length?'Read the displayed timestamps for acquisition timing, including gaps and repeats.':'No timestamps are available for this trajectory; playback shows observation order only.');
-  $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(track?.hasZColumn?' · XY projection only; z is not displayed':'')+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
+  $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+(track?.hasZColumn?' · x/y/z in µm · Animation shows the XY projection only':' · x/y in µm')+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
   $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=$('trajectory-observation-controls').hidden=!available;
   for(const input of [$('trajectory-timeline'),$('trajectory-observation')]){input.max=String(trajectoryPath.length||1);input.value='1';input.disabled=trajectoryPath.length<2;}
   $('trajectory-observation-go').disabled=trajectoryPath.length<2;
@@ -995,7 +995,7 @@ function animateTrajectory(){
   $('trajectory-timeline').setAttribute('aria-valuetext','Observation '+observation+' of '+coords.length+(trajectoryTimes.length?', t = '+trajectoryTimes[trajectoryFrame]+' s':''));
   if(document.activeElement!==$('trajectory-observation'))$('trajectory-observation').value=String(observation);
   const [rawX,rawY]=trajectoryPath[trajectoryFrame];
-  $('trajectory-coordinates').textContent='x = '+rawX+' µm · y = '+rawY+' µm';
+  $('trajectory-coordinates').textContent='x = '+rawX+' µm · y = '+rawY+' µm'+(trajectoryZValues===null?'':Number.isFinite(trajectoryZValues[trajectoryFrame])?' · z = '+trajectoryZValues[trajectoryFrame]+' µm':' · z unavailable (missing or invalid z_um)');
   if(trajectoryRunning)trajectoryTimer=setTimeout(()=>{trajectoryFrame=(trajectoryFrame+1)%coords.length;animateTrajectory();},Math.max(16,4000/coords.length));
 }
 function closeTrajectory(){
