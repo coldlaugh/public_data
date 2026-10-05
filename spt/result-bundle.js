@@ -1,4 +1,4 @@
-import {artifactVersion} from './artifact-links.js?v=6f9da1e66b4423dd';
+import {artifactVersion} from './artifact-links.js?v=5db2f2dc09117eb8';
 
 // Stored ZIP records, UTF-8 names and CRC-32 per PKWARE APPNOTE 6.3.10.
 // https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
