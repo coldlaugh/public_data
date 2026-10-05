@@ -20,24 +20,24 @@ export async function renderProjectionFigure(plot,context){
   const font=Math.max(18,Math.round(width/75)),pad=font*1.5,line=font*1.45;
   const blocks=[];let footerHeight=pad;
   // Break long identifiers as well as ordinary prose; preserve every character.
-  const text=(value,bold=false)=>{
+  const text=(value,bold=false,indent=0)=>{
     probe.font=(bold?'600 ':'')+font+'px Arial, sans-serif';
     let row='';
     for(const char of String(value)){
-      if(char==='\n'||probe.measureText(row+char).width>width-2*pad){
+      if(char==='\n'||probe.measureText(row+char).width>width-2*pad-indent){
         const split=char==='\n'?-1:row.lastIndexOf(' ');
-        blocks.push({text:split>0?row.slice(0,split):row,bold,y:footerHeight});footerHeight+=line;
+        blocks.push({text:split>0?row.slice(0,split):row,bold,indent,y:footerHeight});footerHeight+=line;
         row=char==='\n'?'':(split>0?row.slice(split+1):'')+char;
       }
       else row+=char;
     }
-    blocks.push({text:row,bold,y:footerHeight});footerHeight+=line;
+    blocks.push({text:row,bold,indent,y:footerHeight});footerHeight+=line;
   };
   text(context.title,true);text(context.scope);text(context.datasets);
   if(context.legend){
     footerHeight+=font*.5;text(context.legend.title,true);
     if(context.legend.ramp){blocks.push({ramp:context.legend.ramp,y:footerHeight});footerHeight+=font*1.7;text(context.legend.entries.map(e=>e.label).join(' → '));}
-    else for(const entry of context.legend.entries){blocks.push({swatch:entry.color,y:footerHeight});text('    '+entry.label);}
+    else for(const entry of context.legend.entries){blocks.push({swatch:entry.color,y:footerHeight});text(entry.label,false,font*1.2);}
     text(context.legend.note);
   }else text(context.selectionNote);
   footerHeight+=font*.5;text(context.explanation);text(context.rerun);
@@ -49,7 +49,7 @@ export async function renderProjectionFigure(plot,context){
     const y=plotHeight+block.y;
     if(block.ramp){const gradient=ctx.createLinearGradient(pad,0,width-pad,0);block.ramp.forEach((color,i)=>gradient.addColorStop(i/(block.ramp.length-1),color));ctx.fillStyle=gradient;ctx.fillRect(pad,y,width-2*pad,font*.7);}
     else if(block.swatch){ctx.fillStyle=block.swatch;ctx.fillRect(pad,y-font*.8,font*.7,font*.7);}
-    else{ctx.fillStyle='#26354b';ctx.font=(block.bold?'600 ':'')+font+'px Arial, sans-serif';ctx.fillText(block.text,pad,y);}
+    else{ctx.fillStyle='#26354b';ctx.font=(block.bold?'600 ':'')+font+'px Arial, sans-serif';ctx.fillText(block.text,pad+(block.indent||0),y);}
   }
   const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
   if(!blob)throw new Error('The projection figure could not be exported.');
