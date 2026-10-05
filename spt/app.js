@@ -1,7 +1,7 @@
 import {SPT_API_ORIGIN} from "./deployment-config.js";
 import {createCloudApi,cloudPollDelay} from "./cloud-client.js";
 import {renderAnswer,resolveArtifactLink} from './answer-renderer.js';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory} from './projector-client.js';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js';
 import {createColoring} from './coloring.js';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
@@ -31,7 +31,7 @@ if (fragment.has('job') && fragment.has('key')) {
   remember(active);
   history.replaceState(null, '', './#job=' + active.id);
 } else {
-  active = saved.find(j => j.id === fragment.get('job')) || (fragment.get('new')==='1'?null:saved.at(-1)) || null;
+  active = selectSavedJob(saved,fragment);
 }
 
 function remember(job) {
@@ -46,7 +46,7 @@ function renderHistory() {
   $('history').replaceChildren(...options); $('history').value = active?.id || '';
   $('conversation-list').replaceChildren(...savedJobs().reverse().map(job=>{const b=document.createElement('button');b.textContent=job.title||'Analysis '+job.id.slice(0,10);b.className=active?.id===job.id?'current':'';b.onclick=()=>{$('history').value=job.id;$('history').onchange();sidebar(false);};return b;}));
 }
-$('history').onchange = async () => { const job=savedJobs().find(j=>j.id===$('history').value); if(!job)return; clearTimeout(pollTimer); active=job;latest=null;lastSignature='';pendingFiles=[];started=false;resetEmbedding();setFiles([]);showJourney();history.replaceState(null,'','./#job='+job.id); await refresh(); };
+$('history').onchange = async () => { const job=savedJobs().find(j=>j.id===$('history').value); if(!job)return; clearTimeout(pollTimer); active=job;error(null);latest=null;lastSignature='';pendingFiles=[];started=false;resetEmbedding();setFiles([]);showJourney();history.replaceState(null,'','./#job='+job.id); await refresh(); };
 function sidebar(open){$('session-sidebar').hidden=!open;$('toggle-sidebar').setAttribute('aria-expanded',String(open));}
 $('toggle-sidebar').onclick=()=>sidebar($('session-sidebar').hidden);$('close-sidebar').onclick=()=>sidebar(false);
 function showJourney(){
@@ -541,6 +541,9 @@ function animateTrajectory(){
 $('close-trajectory').onclick=()=>{$('trajectory-card').hidden=true;clearTimeout(trajectoryTimer);};
 $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajectory-play').textContent=trajectoryRunning?'Pause':'Play';clearTimeout(trajectoryTimer);if(trajectoryRunning)animateTrajectory();};
 renderHistory();showJourney();
-if(active)refresh();else draw();
+if(active)refresh();else {
+  draw();
+  if(fragment.has('job'))error(new Error('This analysis is not available in this browser. Return to the browser where you started it, or start a new analysis here.'));
+}
 
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&active)refresh();});

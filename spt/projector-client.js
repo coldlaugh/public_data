@@ -1,3 +1,9 @@
+// An explicit analysis link must never fall back to a different saved dataset.
+export function selectSavedJob(saved,fragment){
+  if(fragment.has('job'))return saved.find(job=>job.id===fragment.get('job'))||null;
+  return fragment.get('new')==='1'?null:saved.at(-1)||null;
+}
+
 // Pick in screen pixels, including between samples on a raw trajectory.
 export function pickTrajectory(tracks,[x,y],radius=8){
   let nearest=null,best=radius*radius;
