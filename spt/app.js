@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=8b375d9684f76b00";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8b375d9684f76b00";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8b375d9684f76b00';
-import {artifactVersion} from './artifact-links.js?v=8b375d9684f76b00';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=8b375d9684f76b00';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8b375d9684f76b00';
-import {createColoring} from './coloring.js?v=8b375d9684f76b00';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=93c4fb5c85953c3d";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=93c4fb5c85953c3d";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=93c4fb5c85953c3d';
+import {artifactVersion} from './artifact-links.js?v=93c4fb5c85953c3d';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=93c4fb5c85953c3d';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=93c4fb5c85953c3d';
+import {createColoring} from './coloring.js?v=93c4fb5c85953c3d';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -284,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8b375d9684f76b00';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=93c4fb5c85953c3d';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=8b375d9684f76b00', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=93c4fb5c85953c3d', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -588,6 +588,7 @@ function preview(keepSelection=false) {
       if(parsed.delimiterMismatch)warnings.push(file.name+': preview detected '+parsed.delimiter+'-separated data despite its file extension. The trajectory columns were recognized.');
       if(parsed.missingColumns?.length&&!normalizedPreview)warnings.push(file.name+': not shown in this preview because its headers do not include '+parsed.missingColumns.join(', ')+'. Describe its columns and units in your question so the agent can normalize it. Do not rename pixel coordinates to x_um/y_um without converting to micrometers.');
       if(parsed.tracks.length&&!parsed.hasTimestamps)warnings.push(file.name+': spatial preview only; no t_s timestamp column was found. Describe the time between frames and any gaps before asking for motion measurements.');
+      if(parsed.tracks.some(track=>track.hasZColumn))warnings.push(file.name+': z_um is present. This preview and its animation show only the XY projection; motion along z is not displayed. Ask for XYZ measurements to include z in the analysis.');
       if(parsed.skippedRows)warnings.push(file.name+': preview skipped '+parsed.skippedRows+' row'+(parsed.skippedRows===1?'':'s')+' with missing or invalid IDs, coordinates or timestamps.');
       if(parsed.duplicateTimes)warnings.push(file.name+': preview found '+parsed.duplicateTimes+' repeated track/timestamp pair'+(parsed.duplicateTimes===1?'':'s')+' across '+parsed.duplicateTimeTracks+' trajector'+(parsed.duplicateTimeTracks===1?'y':'ies')+'. All valid observations were retained. Check for duplicate frames or IDs reused across cells or movies; qualify reused IDs before interpreting combined paths.');
       if(parsed.reorderedTracks)warnings.push(file.name+': preview ordered observations by timestamp in '+parsed.reorderedTracks+' trajector'+(parsed.reorderedTracks===1?'y':'ies')+' whose source rows were out of order.');
@@ -750,7 +751,7 @@ function showTrajectory(ids){
   selectedCardId=ids[0];trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
   updateTrajectoryMeasurement();$('trajectory-title').textContent=ids[0];$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
-  $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
+  $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(track?.hasZColumn?' · XY projection only; z is not displayed':'')+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
   $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=!available;
   clearTimeout(trajectoryTimer);if(available)animateTrajectory();syncTrackChoice();
 }

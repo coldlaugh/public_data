@@ -5,7 +5,7 @@ globalThis.requestAnimationFrame = callback => setTimeout(callback, 0);
 globalThis.onmessage = async event => {
   const {payload, method} = event.data;
   try {
-    const {projectEmbedding} = await import('./projection-engine.js?v=8b375d9684f76b00');
+    const {projectEmbedding} = await import('./projection-engine.js?v=93c4fb5c85953c3d');
     const points = await projectEmbedding(payload, method, progress => postMessage({kind:'progress', ...progress}));
     postMessage({kind:'complete', points});
   } catch (err) { postMessage({kind:'error', message:err.message}); }

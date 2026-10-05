@@ -64,7 +64,7 @@ export function parseTrajectoryTable(text,filename){
       if(reordered)timing.reorderedTracks++;
       observations.sort((a,b)=>a.time-b.time);
     }
-    return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time)};
+    return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time),...(columns.includes('z_um')?{hasZColumn:true}:{})};
   });
   return {tracks,skippedRows,hasTimestamps:it>=0,headerOnly:rows.length===1,delimiterMismatch:separator!==expectedSeparator,delimiter:separator==='\t'?'tab':'comma',...timing};
 }
@@ -84,5 +84,5 @@ export function rawPreviewTracks(parsed,previous,keepSelection){
 export function encoderPreviewTrack(point,previous){
   const path=point.xPosition.map((x,i)=>[x,point.yPosition[i]]);
   const sameObservations=previous?.times?.length===path.length&&previous.path.length===path.length&&previous.path.every(([x,y],i)=>x===path[i][0]&&y===path[i][1]);
-  return {id:point.trackId,key:point.id,file:point.file,path,times:sameObservations?previous.times:[],fromEncoder:true};
+  return {id:point.trackId,key:point.id,file:point.file,path,times:sameObservations?previous.times:[],fromEncoder:true,...(sameObservations&&previous.hasZColumn?{hasZColumn:true}:{})};
 }
