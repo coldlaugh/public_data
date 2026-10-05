@@ -35,3 +35,6 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 
 /* Keep the view panel and its neighboring action inside compact plot widths. */
 .stage-controls>details{min-width:0}.stage-controls .projection-controls{width:230px;max-width:100%;grid-template-columns:minmax(0,1fr)}.stage-controls .projection-controls select{min-width:0}
+
+#trajectory-card{max-height:calc(100% - 60px);overflow:auto}#trajectory-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(max-width:800px){.explorer:has(#preview-warning:not([hidden])){height:auto}.explorer:has(#preview-warning:not([hidden])) .plot-wrap{flex:none;height:55dvh}}

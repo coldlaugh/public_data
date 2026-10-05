@@ -29,11 +29,12 @@ const numeric=value=>{
 };
 
 export function parseTrajectoryTable(text,filename){
+  const timing={duplicateTimes:0,duplicateTimeTracks:0,reorderedTracks:0};
   const rows=delimitedRows(text,/\.tsv$/i.test(filename)?'\t':',');
-  if(!rows.length)return {tracks:[],skippedRows:0};
+  if(!rows.length)return {tracks:[],skippedRows:0,...timing};
   const columns=rows[0].map(value=>value.trim());
   const ix=columns.indexOf('x_um'),iy=columns.indexOf('y_um'),id=columns.indexOf('track_id'),it=columns.indexOf('t_s');
-  if(ix<0||iy<0||id<0)return {tracks:[],skippedRows:0};
+  if(ix<0||iy<0||id<0)return {tracks:[],skippedRows:0,...timing};
   if(['x_um','y_um','track_id','t_s'].some(name=>columns.filter(value=>value===name).length>1))throw new Error('Duplicate trajectory columns.');
   const byId=new Map();let skippedRows=0;
   for(const row of rows.slice(1)){
@@ -43,10 +44,21 @@ export function parseTrajectoryTable(text,filename){
     byId.get(trackId).push({x,y,time});
   }
   const tracks=[...byId].map(([id,observations])=>{
-    if(it>=0)observations.sort((a,b)=>a.time-b.time);
+    if(it>=0){
+      const seen=new Set();let duplicates=0,reordered=false;
+      for(let i=0;i<observations.length;i++){
+        const time=observations[i].time;
+        if(seen.has(time))duplicates++;else seen.add(time);
+        if(i&&time<observations[i-1].time)reordered=true;
+      }
+      timing.duplicateTimes+=duplicates;
+      if(duplicates)timing.duplicateTimeTracks++;
+      if(reordered)timing.reorderedTracks++;
+      observations.sort((a,b)=>a.time-b.time);
+    }
     return {id,key:filename+':'+id,file:filename,path:observations.map(o=>[o.x,o.y]),times:it<0?[]:observations.map(o=>o.time)};
   });
-  return {tracks,skippedRows};
+  return {tracks,skippedRows,...timing};
 }
 
 // Keep the control bounded without making any tracks inaccessible to a refined search.
