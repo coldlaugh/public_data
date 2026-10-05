@@ -14,6 +14,22 @@ export function createCloudApi({origin,fetchImpl=fetch,encode,now=()=>Date.now()
   async function retry(path,data,auth){
     let error;for(let i=0;i<3;i++){try{return await wire(path,data,auth);}catch(e){error=e;if(i<2)await new Promise(resolve=>setTimeout(resolve,500*(i+1)));}}throw error;
   }
+  async function storedObject(path,auth){
+    let response;
+    for(let attempt=0;attempt<3;attempt++){
+      try {
+        response=await fetchImpl(new URL(path,origin),{headers:{Authorization:'Bearer '+auth.token}});
+      } catch(error){
+        if(attempt===2)throw error;
+        await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));continue;
+      }
+      if(response.ok)return response;
+      if(response.status===410){objects.clear();onExpiry(auth?.id);throw new Error('This session expired after seven days.');}
+      if(![404,409,429,500,502,503,504].includes(response.status)||attempt===2)break;
+      await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));
+    }
+    throw new Error('Unable to load stored artifact.');
+  }
   async function upload(path,data,auth){
     const metadata=[];let total=0;
     for(const f of data.files){const raw=decode(f.data);total+=raw.length;metadata.push({name:f.name,bytes:raw.length,sha256:await digest(raw)});}
@@ -50,8 +66,7 @@ export function createCloudApi({origin,fetchImpl=fetch,encode,now=()=>Date.now()
               const parts=file.chunks||[file.objectRef],buffers=[];let length=0;
               for(const part of parts){
                 if(!/^[0-9a-f]{64}$/.test(part))throw new Error('Invalid chunk reference.');
-                const r=await fetchImpl(new URL(`/api/jobs/${result.id}/objects/${part}`,origin),{headers:{Authorization:'Bearer '+credential.token}});
-                if(!r.ok)throw new Error('Unable to load stored artifact.');
+                const r=await storedObject(`/api/jobs/${result.id}/objects/${part}`,credential);
                 const bytes=new Uint8Array(await r.arrayBuffer());
                 if(await digest(bytes)!==part)throw new Error('Stored chunk checksum mismatch.');
                 length+=bytes.length;if(length>file.bytes)throw new Error('Stored file size mismatch.');buffers.push(bytes);
