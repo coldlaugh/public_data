@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d170aafdf47b899c";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d170aafdf47b899c";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d170aafdf47b899c';
-import {artifactVersion} from './artifact-links.js?v=d170aafdf47b899c';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d170aafdf47b899c';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d170aafdf47b899c';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d170aafdf47b899c';
-import {createColoring} from './coloring.js?v=d170aafdf47b899c';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d170aafdf47b899c';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=6ddeb56f530e8938";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=6ddeb56f530e8938";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=6ddeb56f530e8938';
+import {artifactVersion} from './artifact-links.js?v=6ddeb56f530e8938';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=6ddeb56f530e8938';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=6ddeb56f530e8938';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=6ddeb56f530e8938';
+import {createColoring} from './coloring.js?v=6ddeb56f530e8938';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=6ddeb56f530e8938';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -229,7 +229,7 @@ function updateLegendScope(){
   const note=$('color-legend').querySelector('small');if(!note||!pointColoring)return;
   const visible=filteredProjectionIds();
   if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajector'+(visible.size===1?'y':'ies')+' in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
-  else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
+  else note.textContent=pointColoring.mappedCount+' trajector'+(pointColoring.mappedCount===1?'y':'ies')+' mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
   note.textContent+=$('projection').value==='raw'?' · Selected trajectories use thicker lines and larger points; colors retain supplied values.':' · Selected points are enlarged and labelled; colors retain supplied values.';
 }
 function updateSelectionScope(){
@@ -353,7 +353,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d170aafdf47b899c';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=6ddeb56f530e8938';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -378,7 +378,7 @@ async function setProjection(method,settings=null) {
     });
     legacyApi.onChange=snapshot=>{
       if(!legacyMode)return;
-      dockProjectionLegend(snapshot.controlsOpen);
+      dockProjectionLegend(snapshot.controlsOpen||snapshot.pointCount<4);
       if(snapshot.controlsChanged)return;
       if(selectionToSync!==null&&snapshot.selectionChanged)selectionToSync=snapshot.selectedTrackIds;
       const ids=selectionToSync??snapshot.selectedTrackIds;
@@ -398,6 +398,7 @@ async function setProjection(method,settings=null) {
       await usedApi.load(payload);
       if(request!==projectionGeneration||version!==embeddingId)return {cancelled:true};
       legacyVersion=version;
+      usedApi.color(pointColoring?[...pointColoring.colors]:null);
     }
     if(request!==projectionGeneration)return {cancelled:true};
     if(settings)legacyApi.applyViewSettings(settings);
@@ -425,9 +426,16 @@ async function setCompactProjection(method) {
   cancelProjection(); projectedEmbedding=null;
   $('projection').value=method;
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
+  const small=embedding.points.length<3;
+  if(small){
+    method='pca';$('projection').value=method;updatePlotHelp(method);
+    $('projection-notice').textContent='This dataset has '+embedding.points.length+' trajector'+(embedding.points.length===1?'y':'ies')+'. UMAP and t-SNE need at least 3 with these controls; showing PCA.'+(embedding.points.length===1?' Variance explained and comparisons between trajectories are unavailable.':'');
+    $('projection-notice').hidden=false;
+  }
+  for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d170aafdf47b899c', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=6ddeb56f530e8938', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -437,7 +445,7 @@ async function setCompactProjection(method) {
       if(msg.points){const first=!projectedEmbedding;projectedEmbedding=msg.points;if(first)updateTrackFinder();draw();}
       if(msg.kind==='progress')$('plot-meta').textContent='Computing · iteration '+msg.iteration;
       if(msg.kind==='complete'){
-        $('plot-meta').textContent=msg.points.length+' trajectories · encoder vectors';
+        $('plot-meta').textContent=msg.points.length+' trajector'+(msg.points.length===1?'y':'ies')+' · encoder vectors';
         $('plot-empty').hidden=true;worker.terminate();projectionWorker=null;finishProjection=null;
         resolve({projection:method,points:msg.points.length});
       }
