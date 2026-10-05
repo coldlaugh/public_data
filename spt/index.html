@@ -3,8 +3,8 @@
 <head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
-<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=8366d16602a89ce0"><link rel="stylesheet" href="./style.css?v=8366d16602a89ce0">
-<script src="./app.js?v=8366d16602a89ce0" type="module"></script>
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=de8f23a3f59b60bf"><link rel="stylesheet" href="./style.css?v=de8f23a3f59b60bf">
+<script src="./app.js?v=de8f23a3f59b60bf" type="module"></script>
 </head>
 <body>
 <header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
@@ -36,7 +36,7 @@
 <div id="welcome" class="welcome"><h1>What would you like to learn<br>from your trajectories?</h1><p>Upload your data and describe your experiment, or ask to try our demo dataset.</p><div id="welcome-upload"></div></div>
 <div id="messages" class="messages" role="log" aria-label="Conversation and analysis steps" aria-live="off"></div>
 <button id="latest-message" class="quiet" hidden>Jump to latest response ↓</button>
-<details id="results-panel" class="workspace-drawer results-drawer"><summary>Results &amp; figures <span id="result-count">No outputs yet</span></summary><div id="bundle-controls" hidden><button id="download-bundle" class="quiet">Download data &amp; results ZIP</button><p class="muted">Includes source datasets, all listed results, discussion and checksums. Earlier result versions are kept separately.</p><p id="bundle-status" role="status" aria-live="polite"></p></div><div id="downloads"><p class="muted">Analysis outputs will appear here.</p></div></details>
+<details id="results-panel" class="workspace-drawer results-drawer"><summary>Results &amp; figures <span id="result-count">No outputs yet</span></summary><div id="bundle-controls" hidden><button id="download-bundle" class="quiet">Download data &amp; results ZIP</button><p class="muted">Includes source datasets, all listed results, discussion, view settings and checksums. Earlier result versions are kept separately.</p><p id="bundle-status" role="status" aria-live="polite"></p></div><div id="downloads"><p class="muted">Analysis outputs will appear here.</p></div></details>
 <details id="connection-panel"><summary>Connection history</summary><div id="system-activity" class="muted"></div></details>
 <p id="recovery-note" role="status" class="muted" hidden>The original analysis's files were not loaded in this tab. Re-upload the files and reselect trajectories before asking about that dataset.</p>
 <form id="composer"><label for="question">Your question or follow-up</label><textarea id="question" rows="3" placeholder="Describe your data, ask a question, or say ‘use demo data’…" required aria-describedby="question-scope send-hint"></textarea><p id="question-scope" role="status" hidden></p><div class="composer-bottom"><span id="send-hint">No fixed column format required. Tell us the units and time between frames.</span><button type="submit" id="send">Send <span>↗</span></button></div></form>
