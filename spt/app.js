@@ -1,15 +1,17 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=76c8d4d2dc9fa718";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=76c8d4d2dc9fa718";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=76c8d4d2dc9fa718';
-import {artifactVersion} from './artifact-links.js?v=76c8d4d2dc9fa718';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=76c8d4d2dc9fa718';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=76c8d4d2dc9fa718';
-import {createColoring} from './coloring.js?v=76c8d4d2dc9fa718';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=8366d16602a89ce0";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8366d16602a89ce0";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8366d16602a89ce0';
+import {artifactVersion} from './artifact-links.js?v=8366d16602a89ce0';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=8366d16602a89ce0';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=8366d16602a89ce0';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8366d16602a89ce0';
+import {createColoring} from './coloring.js?v=8366d16602a89ce0';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
 let files = [], active = null, latest = null, points = [], selected = new Set(), polygon = [], drawing = false;
 let artifactUrls = [], pendingFiles=[], started=false, autoViewVersion=null, selectedCardId=null;
+let bundleUrl=null,bundleBusy=false;
 let embedding = null, embeddingId = null, projectionWorker = null, projectedEmbedding = null;
 let embeddingArtifactsVersion = null;
 let finishProjection = null;
@@ -108,6 +110,7 @@ $('start-new-analysis').onclick=()=>{
 $('continue-analysis').onclick=()=>{if(sending||!unavailableWorkspace)return;saveWorkspaceDraft();const draft=workspaceDrafts.get(recoveryDraftKey);openUnsentWorkspace(draft);$('question').focus();};
 function clearConversation(){
   $('messages').replaceChildren();$('system-activity').replaceChildren();$('downloads').replaceChildren();
+  $('bundle-controls').hidden=true;$('bundle-status').textContent='';
   $('status').textContent='Ready when you are';$('cancel').hidden=true;$('latest-message').hidden=true;
   $('result-count').textContent='No outputs yet';$('results-panel').open=false;
 }
@@ -284,7 +287,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=76c8d4d2dc9fa718';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8366d16602a89ce0';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +342,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=76c8d4d2dc9fa718', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=8366d16602a89ce0', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -550,16 +553,26 @@ function render(job) {
     const line=document.createElement('p');line.textContent=new Date(e.at*1000).toLocaleTimeString()+' · '+e.text;return line;
   }));
   $('downloads').replaceChildren();
-  const displayedArtifacts = new Set();
-  for (const file of job.artifacts) {
-    if (file.name.startsWith('mplconfig__')) continue;
-    const artifactKey = JSON.stringify([file.name, file.sha256 || file.data]);
-    if(displayedArtifacts.has(artifactKey))continue;displayedArtifacts.add(artifactKey);
+  const displayedArtifacts = listedResults(job.artifacts);
+  for (const file of displayedArtifacts) {
     const version=artifactVersion(file,job.artifacts);
     const a=document.createElement('button');a.className='artifact';a.textContent=file.name+' · Response '+version.response+(version.superseded?' · Earlier version':'');a.onclick=()=>openArtifact(file);$('downloads').append(a);
   }
-  $('result-count').textContent=displayedArtifacts.size?displayedArtifacts.size+' file'+(displayedArtifacts.size===1?'':'s'):'No outputs yet';
+  $('result-count').textContent=displayedArtifacts.length?displayedArtifacts.length+' file'+(displayedArtifacts.length===1?'':'s'):'No outputs yet';
+  $('bundle-controls').hidden=!displayedArtifacts.length;$('download-bundle').disabled=bundleBusy;
 }
+const bundleDownloadLink=document.createElement('a');bundleDownloadLink.hidden=true;document.body.append(bundleDownloadLink);
+$('download-bundle').onclick=async()=>{
+  const job=latest;if(!job||bundleBusy)return;bundleBusy=true;$('download-bundle').disabled=true;$('bundle-status').textContent='Preparing ZIP…';
+  try{
+    const bundle=await buildAnalysisBundle(job);
+    if(latest?.id!==job.id)return;
+    if(bundleUrl)URL.revokeObjectURL(bundleUrl);bundleUrl=URL.createObjectURL(bundle.blob);
+    bundleDownloadLink.href=bundleUrl;bundleDownloadLink.download=bundle.filename;bundleDownloadLink.click();
+    $('bundle-status').textContent='ZIP download started. It contains '+bundle.manifest.files.filter(f=>f.kind==='input').length+' source dataset(s) and '+bundle.manifest.files.filter(f=>f.kind==='result').length+' result file(s).';
+  }catch(failure){if(latest?.id===job.id)$('bundle-status').textContent=failure.message;}
+  finally{bundleBusy=false;$('download-bundle').disabled=false;}
+};
 async function refresh() {
   clearTimeout(pollTimer);
   if (!active||unavailableWorkspace) return;
