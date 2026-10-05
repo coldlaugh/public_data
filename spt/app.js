@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=ffdbae62a29a5977";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=ffdbae62a29a5977";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=ffdbae62a29a5977';
-import {artifactVersion} from './artifact-links.js?v=ffdbae62a29a5977';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=ffdbae62a29a5977';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=ffdbae62a29a5977';
-import {createColoring} from './coloring.js?v=ffdbae62a29a5977';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=065b92a2577a5a80";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=065b92a2577a5a80";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=065b92a2577a5a80';
+import {artifactVersion} from './artifact-links.js?v=065b92a2577a5a80';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=065b92a2577a5a80';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=065b92a2577a5a80';
+import {createColoring} from './coloring.js?v=065b92a2577a5a80';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -284,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=ffdbae62a29a5977';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=065b92a2577a5a80';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=ffdbae62a29a5977', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=065b92a2577a5a80', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -716,7 +716,7 @@ function openArtifact(file){
   const preview=$('artifact-preview');preview.replaceChildren();
   if(['png','jpg'].includes(ext)){const img=document.createElement('img');img.src=url;img.alt=file.name;preview.append(img);}
   else if(ext==='pdf'){const p=document.createElement('p');p.textContent='Download this PDF to open it in your document viewer.';preview.append(p);}
-  else {const text=new TextDecoder().decode(bytes);if(ext==='md')preview.append(renderAnswer(text,href=>resolveArtifact(href,file.turn),openArtifact));else{const pre=document.createElement('pre');pre.textContent=text.slice(0,200000)+(text.length>200000?'\n… Download the full file to read more.':'');preview.append(pre);}}
+  else {const text=new TextDecoder().decode(bytes);if(ext==='md')preview.append(renderAnswer(text,href=>resolveArtifact(href,file.turn),openArtifact));else{const pre=document.createElement('pre');pre.textContent=text.slice(0,200000)+(text.length>200000?'\n… Download the full file to read more.':'');preview.append(pre);if(text.length>200000)notice.append(Object.assign(document.createElement('span'),{className:'artifact-preview-limit',textContent:'This text preview is shortened. Use Download for the complete file.'}));}}
   if(!$('artifact-dialog').open)$('artifact-dialog').showModal();
   preview.scrollTop=0;preview.scrollLeft=0;$('artifact-dialog').scrollTop=0;
 }
