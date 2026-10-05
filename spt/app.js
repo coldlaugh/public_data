@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=b97b6635f77f20fd";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=b97b6635f77f20fd";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=b97b6635f77f20fd';
-import {artifactVersion} from './artifact-links.js?v=b97b6635f77f20fd';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=b97b6635f77f20fd';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=b97b6635f77f20fd';
-import {createColoring} from './coloring.js?v=b97b6635f77f20fd';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=b5c2e8f25bbea2ef";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=b5c2e8f25bbea2ef";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=b5c2e8f25bbea2ef';
+import {artifactVersion} from './artifact-links.js?v=b5c2e8f25bbea2ef';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=b5c2e8f25bbea2ef';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=b5c2e8f25bbea2ef';
+import {createColoring} from './coloring.js?v=b5c2e8f25bbea2ef';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -85,12 +85,13 @@ function setColoring(spec){
   if(spec.kind==='numeric'){const ramp=document.createElement('div');ramp.className='color-ramp';ramp.style.background='linear-gradient(90deg,'+pointColoring.ramp.join(',')+')';ramp.title=pointColoring.spec.palette+' · higher values are lighter';legend.append(ramp);}
   legend.append(items);legend.append(document.createElement('small'));updateLegendScope();
 }
-function filteredProjectionIds(){
-  if(!legacyMode||!legacyApi?.isFiltered?.()){projectionViewRevision=null;projectionViewIds=null;return null;}
+function projectionVisibleIds(){
+  if(!legacyMode||!legacyApi){projectionViewRevision=null;projectionViewIds=null;return null;}
   const revision=legacyApi.viewRevision();
   if(revision!==projectionViewRevision){projectionViewRevision=revision;projectionViewIds=new Set(legacyApi.visibleTrackIds());}
   return projectionViewIds;
 }
+function filteredProjectionIds(){return legacyApi?.isFiltered?.()?projectionVisibleIds():null;}
 function updateLegendScope(){
   updateSelectionScope();
   const note=$('color-legend').querySelector('small');if(!note||!pointColoring)return;
@@ -101,7 +102,7 @@ function updateLegendScope(){
 function updateSelectionScope(){
   if(rawSelectionError&&embedding&&[...selected].every(id=>embedding.points.some(p=>p.id===id))&&$('error').textContent===rawSelectionError)error(null);
   const scope=$('question-scope');scope.hidden=!files.length&&!selected.size;
-  scope.textContent=selected.size?selected.size+' selected trajector'+(selected.size===1?'y accompanies':'ies accompany')+' your next question.':filteredProjectionIds()?'No trajectories selected. Isolating the view does not restrict your next question. Select the tracks you want to discuss.':'No trajectory selection is attached. Your next question uses the full dataset.';
+  scope.textContent=selected.size?selected.size+' selected trajector'+(selected.size===1?'y accompanies':'ies accompany')+' your next question.':filteredProjectionIds()?'No trajectories selected. Your next question uses the full dataset. Choose Select all trajectories in this view to discuss this group.':'No trajectory selection is attached. Your next question uses the full dataset.';
 }
 function selectTracks(ids) {
   const knownIds=new Set([...points.map(t=>t.key),...(embedding?.points||[]).map(p=>p.id)]);
@@ -109,6 +110,8 @@ function selectTracks(ids) {
     const failure=new Error('Unknown track ID');failure.code='unknown_track';throw failure;
   }
   if(legacyMode&&legacyApi){
+    const encoded=new Set(embedding.points.map(p=>p.id));
+    if(ids.some(id=>!encoded.has(id))){const failure=new Error('This trajectory has no encoder vector in this projection. Switch to Raw trajectories to inspect it.');failure.code='unknown_track';throw failure;}
     try{return legacyApi.select(ids);}catch{const failure=new Error('This trajectory is outside the current projection view. Restore all trajectories in View & parameters to inspect it.');failure.code='unknown_track';failure.filtered=true;throw failure;}
   }
   selected=new Set(ids);draw();showTrajectory(ids);syncTrackChoice();return {selectedTrackIds:[...selected]};
@@ -182,7 +185,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=b97b6635f77f20fd';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=b5c2e8f25bbea2ef';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -235,14 +238,14 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=b97b6635f77f20fd', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=b5c2e8f25bbea2ef', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
       if(projectionWorker!==worker)return;
       const msg=event.data;
       if(msg.kind==='error'){worker.terminate();projectionWorker=null;finishProjection=null;error(new Error(msg.message));reject(new Error(msg.message));return;}
-      if(msg.points){projectedEmbedding=msg.points;draw();}
+      if(msg.points){const first=!projectedEmbedding;projectedEmbedding=msg.points;if(first)updateTrackFinder();draw();}
       if(msg.kind==='progress')$('plot-meta').textContent='Computing · iteration '+msg.iteration;
       if(msg.kind==='complete'){
         $('plot-meta').textContent=msg.points.length+' trajectories · encoder vectors';
@@ -473,16 +476,22 @@ function preview(keepSelection=false) {
 }
 let finderTracks=[],finderScopeIds;
 function updateTrackFinder(scopeOnly=false){
-  const visible=filteredProjectionIds();
-  if(!visible&&viewSelectionError&&$('error').textContent===viewSelectionError)error(null);
+  const visible=projectionVisibleIds();
+  const filtered=filteredProjectionIds();
+  if(!filtered&&viewSelectionError&&$('error').textContent===viewSelectionError)error(null);
   if(scopeOnly&&visible===finderScopeIds){syncTrackChoice();return;}
   finderScopeIds=visible;
   const byId=new Map(points.map(track=>[track.key,track]));
   for(const point of embedding?.points||[])if(!byId.has(point.id))byId.set(point.id,{key:point.id,id:point.trackId,file:point.file});
   finderTracks=[...byId.values()].sort((a,b)=>a.key.localeCompare(b.key));
-  if(visible)finderTracks=finderTracks.filter(track=>visible.has(track.key));
-  $('restore-tracks').hidden=$('view-scope').hidden=!visible;
-  $('view-scope').textContent=visible?visible.size+' of '+byId.size+' trajectories shown. Hidden trajectories remain in your dataset.':'';
+  const shown=visible||new Set(projectedEmbedding?projectedEmbedding.map(track=>track.id):points.map(track=>track.key));
+  finderTracks=finderTracks.filter(track=>shown.has(track.key));
+  $('restore-tracks').hidden=$('view-scope').hidden=!filtered;
+  $('view-scope').textContent=filtered?filtered.size+' of '+byId.size+' trajectories shown. Hidden trajectories remain in your dataset.':'';
+  $('select-visible').hidden=$('visible-selection-help').hidden=!finderTracks.length;
+  $('select-visible').textContent='Select all '+finderTracks.length+' trajectories in this view';
+  $('select-visible').disabled=finderTracks.length>20000;
+  $('visible-selection-help').textContent=finderTracks.length>20000?'Up to 20,000 trajectories can accompany a question. Use a smaller group to select them together.':'Includes all trajectories in this view, regardless of zoom or picker search. Replaces your selection.';
   $('track-finder').hidden=!finderTracks.length;
   if(!finderTracks.length)$('track-search').value='';
   renderTrackChoices();
@@ -498,6 +507,7 @@ function syncTrackChoice(){ $('track-choice').value=selected.size===1?[...select
 $('track-search').oninput=renderTrackChoices;
 $('track-choice').onchange=()=>{$('track-inspect').disabled=!$('track-choice').value;};
 $('restore-tracks').onclick=()=>{try{legacyApi.restoreAll();updateTrackFinder();updateLegendScope();error(null);$('track-search').focus();}catch(failure){error(failure);}};
+$('select-visible').onclick=()=>{try{selectTracks(finderTracks.map(track=>track.key));$('view-panel').open=false;$('question').focus();}catch(failure){error(failure);}};
 $('track-inspect').onclick=()=>{try{selectTracks([$('track-choice').value]);$('view-panel').open=false;$('close-trajectory').focus();}catch(failure){syncTrackChoice();error(failure);}};
 $('view-panel').onkeydown=event=>{if(event.key==='Escape'){$('view-panel').open=false;$('view-panel').querySelector('summary').focus();}};
 const canvas=$('plot');let projected=[];
