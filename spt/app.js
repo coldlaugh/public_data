@@ -1,11 +1,11 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=8e72bc943623f0f4";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=8e72bc943623f0f4";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=8e72bc943623f0f4';
-import {artifactVersion} from './artifact-links.js?v=8e72bc943623f0f4';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=8e72bc943623f0f4';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=8e72bc943623f0f4';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=8e72bc943623f0f4';
-import {createColoring} from './coloring.js?v=8e72bc943623f0f4';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=bc3f6199cf3810f8";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=bc3f6199cf3810f8";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=bc3f6199cf3810f8';
+import {artifactVersion} from './artifact-links.js?v=bc3f6199cf3810f8';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=bc3f6199cf3810f8';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=bc3f6199cf3810f8';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=bc3f6199cf3810f8';
+import {createColoring} from './coloring.js?v=bc3f6199cf3810f8';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -292,7 +292,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=8e72bc943623f0f4';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=bc3f6199cf3810f8';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -350,7 +350,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=8e72bc943623f0f4', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=bc3f6199cf3810f8', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -815,7 +815,9 @@ function showTrajectory(ids,openGroup=false,previewId=null){
   updateTrajectoryMeasurement();$('trajectory-title').textContent=id;$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
   $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(track?.hasZColumn?' · XY projection only; z is not displayed':'')+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
-  $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=!available;
+  $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=$('trajectory-observation-controls').hidden=!available;
+  for(const input of [$('trajectory-timeline'),$('trajectory-observation')]){input.max=String(trajectoryPath.length||1);input.value='1';input.disabled=trajectoryPath.length<2;}
+  $('trajectory-observation-go').disabled=trajectoryPath.length<2;
   clearTimeout(trajectoryTimer);if(available)animateTrajectory();syncTrackChoice();
 }
 function animateTrajectory(){
@@ -828,7 +830,13 @@ function animateTrajectory(){
   const line=(end,color)=>{ctx.beginPath();coords.slice(0,end).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.strokeStyle=color;ctx.lineWidth=1.4;ctx.stroke();};
   line(coords.length,'#e0e6ef');line(trajectoryFrame+1,'#4779dc');const [x,y]=coords[trajectoryFrame];ctx.beginPath();ctx.arc(x,y,3.5,0,Math.PI*2);ctx.fillStyle='#d6584f';ctx.fill();
   $('trajectory-frame').textContent=`Observation ${trajectoryFrame+1} / ${coords.length}`+(trajectoryTimes.length?` · t = ${trajectoryTimes[trajectoryFrame]} s`:'');
-  if(trajectoryRunning){trajectoryFrame=(trajectoryFrame+1)%coords.length;trajectoryTimer=setTimeout(animateTrajectory,Math.max(16,4000/coords.length));}
+  const observation=trajectoryFrame+1;
+  $('trajectory-timeline').value=String(observation);
+  $('trajectory-timeline').setAttribute('aria-valuetext','Observation '+observation+' of '+coords.length+(trajectoryTimes.length?', t = '+trajectoryTimes[trajectoryFrame]+' s':''));
+  if(document.activeElement!==$('trajectory-observation'))$('trajectory-observation').value=String(observation);
+  const [rawX,rawY]=trajectoryPath[trajectoryFrame];
+  $('trajectory-coordinates').textContent='x = '+rawX+' µm · y = '+rawY+' µm';
+  if(trajectoryRunning)trajectoryTimer=setTimeout(()=>{trajectoryFrame=(trajectoryFrame+1)%coords.length;animateTrajectory();},Math.max(16,4000/coords.length));
 }
 function closeTrajectory(){
   $('trajectory-card').hidden=true;selectedCardId=null;trajectoryGroup=[];previewSelectedGroup=false;$('trajectory-search').value='';trajectoryChoicesKey=null;clearTimeout(trajectoryTimer);
@@ -848,6 +856,16 @@ $('trajectory-previous').onclick=()=>stepTrajectory(-1);
 $('trajectory-next').onclick=()=>stepTrajectory(1);
 $('close-trajectory').onclick=closeTrajectory;
 $('trajectory-card').onkeydown=event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeTrajectory();}};
+function pauseTrajectory(){trajectoryRunning=false;clearTimeout(trajectoryTimer);$('trajectory-play').textContent='Play';}
+function seekTrajectory(observation){
+  if(!Number.isInteger(observation)||observation<1||observation>trajectoryPath.length)return;
+  pauseTrajectory();trajectoryFrame=observation-1;animateTrajectory();
+}
+$('trajectory-timeline').oninput=()=>seekTrajectory(Number($('trajectory-timeline').value));
+$('trajectory-observation').oninput=pauseTrajectory;
+function jumpObservation(){const input=$('trajectory-observation');if(input.reportValidity()){seekTrajectory(Number(input.value));input.value=String(trajectoryFrame+1);}}
+$('trajectory-observation-go').onclick=jumpObservation;
+$('trajectory-observation').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();jumpObservation();}};
 $('trajectory-play').onclick=()=>{trajectoryRunning=!trajectoryRunning;$('trajectory-play').textContent=trajectoryRunning?'Pause':'Play';clearTimeout(trajectoryTimer);if(trajectoryRunning)animateTrajectory();};
 renderHistory();showJourney();
 if(active){loadingWorkspace=true;$('status').textContent='Loading analysis…';renderFileControls();refresh();}else {
