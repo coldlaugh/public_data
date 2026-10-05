@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=e27366c5751231f5";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=e27366c5751231f5";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=e27366c5751231f5';
-import {artifactVersion} from './artifact-links.js?v=e27366c5751231f5';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=e27366c5751231f5';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob} from './projector-client.js?v=e27366c5751231f5';
-import {createColoring} from './coloring.js?v=e27366c5751231f5';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=08d42f16646ae9d4";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=08d42f16646ae9d4";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=08d42f16646ae9d4';
+import {artifactVersion} from './artifact-links.js?v=08d42f16646ae9d4';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=08d42f16646ae9d4';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=08d42f16646ae9d4';
+import {createColoring} from './coloring.js?v=08d42f16646ae9d4';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -92,10 +92,15 @@ function filteredProjectionIds(){
   return projectionViewIds;
 }
 function updateLegendScope(){
+  updateSelectionScope();
   const note=$('color-legend').querySelector('small');if(!note||!pointColoring)return;
   const visible=filteredProjectionIds();
   if(visible){const missing=[...visible].filter(id=>!pointColoring.colors.has(id)).length;note.textContent=visible.size+' trajectories in this view · color scale from '+pointColoring.mappedCount+' mapped trajectories'+(missing?' · '+missing+' without values (gray)':'');}
   else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
+}
+function updateSelectionScope(){
+  const scope=$('question-scope');scope.hidden=!files.length&&!selected.size;
+  scope.textContent=selected.size?selected.size+' selected trajector'+(selected.size===1?'y accompanies':'ies accompany')+' your next question.':filteredProjectionIds()?'No trajectories selected. Isolating the view does not restrict your next question. Select the tracks you want to discuss.':'No trajectory selection is attached. Your next question uses the full dataset.';
 }
 function selectTracks(ids) {
   const knownIds=new Set([...points.map(t=>t.key),...(embedding?.points||[]).map(p=>p.id)]);
@@ -155,6 +160,12 @@ function cancelProjection() {
 }
 async function setProjection(method) {
   if(!['raw','pca','umap','tsne'].includes(method))throw new Error('Unknown projection.');
+  const selectionPlan=method==='raw'||!embedding?null:planProjectionSelection([...selected],embedding.points.map(p=>p.id));
+  if(selectionPlan?.unavailable.length){
+    await setProjection('raw');
+    throw new Error('Your selected trajectories do not all have encoder vectors. Their selection is preserved in raw view. Clear selection to explore the encoder projections.');
+  }
+  let selectionToSync=selectionPlan?.ids;
   updatePlotHelp(method);
   const request=++projectionGeneration;
   legacyApi?.cancel();
@@ -169,7 +180,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=e27366c5751231f5';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=08d42f16646ae9d4';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -182,12 +193,13 @@ async function setProjection(method) {
     legacyMode=true;
     legacyApi.onChange=snapshot=>{
       if(!legacyMode)return;
-      selected=new Set(snapshot.selectedTrackIds);
+      const ids=selectionToSync??snapshot.selectedTrackIds;
+      selected=new Set(ids);
       $('projection').value=snapshot.projection;
       updatePlotHelp(snapshot.projection);
-      $('selection').textContent=selected.size?selected.size+' selected':'All trajectories';
+      $('selection').textContent=selected.size?selected.size+' selected':'No trajectories selected';
       $('plot-meta').textContent=snapshot.pointCount+' trajectories';
-      showTrajectory(snapshot.selectedTrackIds);updateTrackFinder(true);updateLegendScope();
+      showTrajectory(ids);updateTrackFinder(true);updateLegendScope();
     };
     if(legacyVersion!==embeddingId){
       const version=embeddingId, usedApi=legacyApi;
@@ -198,6 +210,9 @@ async function setProjection(method) {
       legacyVersion=version;
     }
     if(request!==projectionGeneration)return {cancelled:true};
+    const plan=planProjectionSelection(selectionToSync,embedding.points.map(p=>p.id),legacyApi.isFiltered()?legacyApi.visibleTrackIds():null);
+    if(plan.restoreAll)legacyApi.restoreAll();
+    legacyApi.select(plan.ids);selectionToSync=null;
     const result=await legacyApi.project(method);
     if(request!==projectionGeneration||result.cancelled)return {cancelled:true};
     legacyApi.color(pointColoring?[...pointColoring.colors]:null);
@@ -218,7 +233,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=e27366c5751231f5', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=08d42f16646ae9d4', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -488,12 +503,13 @@ function updatePlotHelp(method=$('projection').value){
   $('plot-help').textContent=method==='raw'?'Click a trajectory to inspect it, or find its filename and ID in View & parameters. Drag a lasso to select several. Selected tracks accompany your next question.':'Each point represents one trajectory’s encoder vector. Projection distances have no spatial units and clusters alone do not establish a motion model. Click a point to inspect it, or find its filename and ID in View & parameters.';
 }
 function draw(){
+  updateSelectionScope();
   updatePlotHelp();
   const box=canvas.getBoundingClientRect();const scale=devicePixelRatio||1;
   canvas.width=box.width*scale;canvas.height=box.height*scale;
   const c=canvas.getContext('2d');c.scale(scale,scale);c.clearRect(0,0,box.width,box.height);
   projected=[];
-  $('selection').textContent=selected.size?`${selected.size} selected trajector${selected.size===1?'y':'ies'}`:'All trajectories';
+  $('selection').textContent=selected.size?`${selected.size} selected trajector${selected.size===1?'y':'ies'}`:'No trajectories selected';
   c.strokeStyle='#e6eaf0';c.lineWidth=.5;
   for(let i=1;i<8;i++){c.beginPath();c.moveTo(i*box.width/8,0);c.lineTo(i*box.width/8,box.height);c.stroke();c.beginPath();c.moveTo(0,i*box.height/8);c.lineTo(box.width,i*box.height/8);c.stroke();}
   const visible=projectedEmbedding ? projectedEmbedding.map(p=>({id:p.id,key:p.id,path:[[p.x,p.y]]})) : points;

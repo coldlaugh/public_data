@@ -3,8 +3,8 @@
 <head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
-<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=e27366c5751231f5"><link rel="stylesheet" href="./style.css?v=e27366c5751231f5">
-<script src="./app.js?v=e27366c5751231f5" type="module"></script>
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=08d42f16646ae9d4"><link rel="stylesheet" href="./style.css?v=08d42f16646ae9d4">
+<script src="./app.js?v=08d42f16646ae9d4" type="module"></script>
 </head>
 <body>
 <header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
@@ -23,7 +23,7 @@
 <div class="stage-controls"><details id="view-panel"><summary>View &amp; parameters</summary><div class="projection-controls"><label for="projection">Projection</label><select id="projection"><option value="raw">Raw trajectories</option><option value="pca" disabled>PCA</option><option value="umap" disabled>UMAP</option><option value="tsne" disabled>t-SNE</option></select><span id="embedding-info">Encoder projections appear when available.</span><button id="projection-settings" hidden>Projection parameters</button><p id="view-scope" hidden></p><button id="restore-tracks" hidden>Restore all trajectories</button><div id="track-finder" hidden><label for="track-search">Find a trajectory</label><input id="track-search" type="search" placeholder="Filename or track ID" aria-describedby="track-matches"><label for="track-choice">Trajectory</label><select id="track-choice"><option value="">Choose a trajectory</option></select><button id="track-inspect" disabled>Inspect trajectory</button><p id="track-matches" aria-live="polite"></p></div></div></details><button id="clear-selection" class="quiet">Clear selection</button></div>
 <div id="plot-empty">Projection will appear here when the data are ready.</div>
 <div id="color-legend" aria-label="Trajectory color legend" hidden></div>
-<div class="stage-status"><span id="plot-title">Trajectory preview</span><span id="plot-meta">No dataset loaded</span><span id="selection">All trajectories</span></div>
+<div class="stage-status"><span id="plot-title">Trajectory preview</span><span id="plot-meta">No dataset loaded</span><span id="selection">No trajectories selected</span></div>
 <div id="projection-progress" role="status" hidden><span class="loading-ring"></span><strong>Preparing your dataset</strong><span id="projection-progress-text">The agent is checking your data. The projection will appear here when ready.</span></div>
 <div id="trajectory-card" hidden><div class="trajectory-card-head"><strong id="trajectory-title"></strong><button id="close-trajectory" class="quiet" aria-label="Close trajectory preview">×</button></div><p id="trajectory-source"></p><canvas id="trajectory-animation" aria-label="Animated selected trajectory"></canvas><div><span id="trajectory-frame"></span><button id="trajectory-play">Pause</button></div><p id="trajectory-note">Preview animation uses uniform steps; displayed timestamps preserve acquisition gaps.</p></div>
 </div>
@@ -36,7 +36,7 @@
 <button id="latest-message" class="quiet" hidden>Jump to latest response ↓</button>
 <details id="results-panel" class="workspace-drawer results-drawer"><summary>Results &amp; figures <span id="result-count">No outputs yet</span></summary><div id="downloads"><p class="muted">Analysis outputs will appear here.</p></div></details>
 <details id="connection-panel"><summary>Connection history</summary><div id="system-activity" class="muted"></div></details>
-<form id="composer"><label for="question">Your question or follow-up</label><textarea id="question" rows="3" placeholder="Describe your data, ask a question, or say ‘use demo data’…" required></textarea><div class="composer-bottom"><span id="send-hint">No fixed column format required. Tell us the units and time between frames.</span><button type="submit" id="send">Send <span>↗</span></button></div></form>
+<form id="composer"><label for="question">Your question or follow-up</label><textarea id="question" rows="3" placeholder="Describe your data, ask a question, or say ‘use demo data’…" required aria-describedby="question-scope send-hint"></textarea><p id="question-scope" role="status" hidden></p><div class="composer-bottom"><span id="send-hint">No fixed column format required. Tell us the units and time between frames.</span><button type="submit" id="send">Send <span>↗</span></button></div></form>
 <p class="muted">Sessions expire seven days after creation. Download any results you want to keep.</p>
 <p id="error" role="alert"></p>
 </section>

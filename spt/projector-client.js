@@ -4,6 +4,13 @@ export function selectSavedJob(saved,fragment){
   return fragment.get('new')==='1'?null:saved.at(-1)||null;
 }
 
+// Switching views must preserve an explicit selection, including IDs currently
+// hidden by isolation. A raw-only selection cannot be silently widened to all.
+export function planProjectionSelection(ids,availableIds,visibleIds){
+  const available=new Set(availableIds),visible=visibleIds==null?null:new Set(visibleIds);
+  return {ids:[...ids],unavailable:ids.filter(id=>!available.has(id)),restoreAll:!!visible&&ids.some(id=>!visible.has(id))};
+}
+
 // Pick in screen pixels, including between samples on a raw trajectory.
 export function pickTrajectory(tracks,[x,y],radius=8){
   let nearest=null,best=radius*radius;

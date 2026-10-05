@@ -28,3 +28,5 @@ main.onboarding{display:flex;align-items:center;justify-content:center;min-heigh
 #data-guide,#demo-info{flex-basis:100%;font-size:.8125rem;line-height:1.6;color:var(--muted)}#data-guide summary,#demo-info summary{cursor:pointer;color:#3e65aa}#data-guide p{margin:8px 0}#dataset-lock{flex-basis:100%;margin:0}.explorer-help{flex:none;font-size:.8125rem;line-height:1.5;color:var(--muted);margin:0;padding:9px 18px;border-bottom:1px solid var(--border)}#demo-context .markdown{font-size:.8125rem}
 
 #view-scope{font-size:.75rem;line-height:1.5;margin:0;color:var(--muted)}
+
+#question-scope{font-size:.75rem;line-height:1.5;margin:7px 0;color:var(--muted)}
