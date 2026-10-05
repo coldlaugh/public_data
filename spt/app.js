@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=08d42f16646ae9d4";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=08d42f16646ae9d4";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=08d42f16646ae9d4';
-import {artifactVersion} from './artifact-links.js?v=08d42f16646ae9d4';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=08d42f16646ae9d4';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=08d42f16646ae9d4';
-import {createColoring} from './coloring.js?v=08d42f16646ae9d4';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=b97b6635f77f20fd";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=b97b6635f77f20fd";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=b97b6635f77f20fd';
+import {artifactVersion} from './artifact-links.js?v=b97b6635f77f20fd';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=b97b6635f77f20fd';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=b97b6635f77f20fd';
+import {createColoring} from './coloring.js?v=b97b6635f77f20fd';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -16,7 +16,7 @@ let finishProjection = null;
 let legacyApi=null, legacyVersion=null, legacyMode=false, projectionGeneration=0;
 let pendingFollowup = null;
 let pointColoring=null,colorVersion='null';
-let projectionViewRevision=null,projectionViewIds=null,viewSelectionError=null;
+let projectionViewRevision=null,projectionViewIds=null,viewSelectionError=null,rawSelectionError=null;
 let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomUUID() + crypto.randomUUID();
 let sampleFile=null, sampleContext='';
 let connectionError=null;
@@ -67,7 +67,7 @@ async function api(path,data,auth=active){
   return result;
 }
 
-function error(err) { $('error').textContent = err?.message || '';connectionError=null;viewSelectionError=err?.filtered?err.message:null; }
+function error(err) { $('error').textContent = err?.message || '';connectionError=null;viewSelectionError=err?.filtered?err.message:null;rawSelectionError=err?.rawSelection?err.message:null; }
 function projectorState() {
   const state=legacyMode&&legacyApi?legacyApi.state():{projection:$('projection').value,projectionReady:projectionWorker===null,
     availableProjections:[...$('projection').options].filter(o=>!o.disabled).map(o=>o.value),
@@ -99,6 +99,7 @@ function updateLegendScope(){
   else note.textContent=pointColoring.mappedCount+' trajectories mapped'+(pointColoring.missingCount?' · '+pointColoring.missingCount+' without values (gray)':'');
 }
 function updateSelectionScope(){
+  if(rawSelectionError&&embedding&&[...selected].every(id=>embedding.points.some(p=>p.id===id))&&$('error').textContent===rawSelectionError)error(null);
   const scope=$('question-scope');scope.hidden=!files.length&&!selected.size;
   scope.textContent=selected.size?selected.size+' selected trajector'+(selected.size===1?'y accompanies':'ies accompany')+' your next question.':filteredProjectionIds()?'No trajectories selected. Isolating the view does not restrict your next question. Select the tracks you want to discuss.':'No trajectory selection is attached. Your next question uses the full dataset.';
 }
@@ -163,7 +164,8 @@ async function setProjection(method) {
   const selectionPlan=method==='raw'||!embedding?null:planProjectionSelection([...selected],embedding.points.map(p=>p.id));
   if(selectionPlan?.unavailable.length){
     await setProjection('raw');
-    throw new Error('Your selected trajectories do not all have encoder vectors. Their selection is preserved in raw view. Clear selection to explore the encoder projections.');
+    const failure=new Error('Your selected trajectories do not all have encoder vectors. Their selection is preserved in raw view. Clear selection to explore the encoder projections.');
+    failure.rawSelection=true;throw failure;
   }
   let selectionToSync=selectionPlan?.ids;
   updatePlotHelp(method);
@@ -180,7 +182,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=08d42f16646ae9d4';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=b97b6635f77f20fd';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -233,7 +235,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=08d42f16646ae9d4', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=b97b6635f77f20fd', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
