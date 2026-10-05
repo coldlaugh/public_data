@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d8a68a090d4540c4";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d8a68a090d4540c4";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d8a68a090d4540c4';
-import {artifactVersion} from './artifact-links.js?v=d8a68a090d4540c4';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d8a68a090d4540c4';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=d8a68a090d4540c4';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d8a68a090d4540c4';
-import {createColoring} from './coloring.js?v=d8a68a090d4540c4';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d8a68a090d4540c4';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=70c86da32cf1ef32";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=70c86da32cf1ef32";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=70c86da32cf1ef32';
+import {artifactVersion} from './artifact-links.js?v=70c86da32cf1ef32';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=70c86da32cf1ef32';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=70c86da32cf1ef32';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=70c86da32cf1ef32';
+import {createColoring} from './coloring.js?v=70c86da32cf1ef32';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=70c86da32cf1ef32';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -358,7 +358,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d8a68a090d4540c4';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=70c86da32cf1ef32';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -444,7 +444,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d8a68a090d4540c4', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=70c86da32cf1ef32', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -958,6 +958,7 @@ function showTrajectory(ids,openGroup=false,previewId=null){
   selectedCardId=id;trajectoryPath=track?.path||[];trajectoryTimes=track?.times||[];trajectoryFrame=0;trajectoryRunning=true;
   updateTrajectoryMeasurement();$('trajectory-title').textContent=id;$('trajectory-card').hidden=false;$('trajectory-card').scrollTop=0;$('trajectory-play').textContent='Pause';
   const available=!!trajectoryPath.length;
+  $('trajectory-note').textContent='Each trajectory is fitted independently to this preview. Playback uses uniform observation steps. '+(trajectoryTimes.length?'Read the displayed timestamps for acquisition timing, including gaps and repeats.':'No timestamps are available for this trajectory; playback shows observation order only.');
   $('trajectory-source').textContent='File: '+(track?.file||vector.file)+' · Track ID: '+(track?.id??vector.trackId)+(available?' · '+trajectoryPath.length+(trajectoryPath.length===1?' observation':' observations')+' · x/y in µm'+(track?.hasZColumn?' · XY projection only; z is not displayed':'')+(trajectoryTimes.length?' · t = '+trajectoryTimes[0]+' to '+trajectoryTimes.at(-1)+' s':''):' · Raw spatial observations are unavailable for this encoder vector.');
   $('trajectory-animation').hidden=$('trajectory-play').hidden=$('trajectory-frame').hidden=$('trajectory-note').hidden=$('trajectory-observation-controls').hidden=!available;
   for(const input of [$('trajectory-timeline'),$('trajectory-observation')]){input.max=String(trajectoryPath.length||1);input.value='1';input.disabled=trajectoryPath.length<2;}
