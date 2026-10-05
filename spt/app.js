@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=011d91f25dc37218";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=011d91f25dc37218";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=011d91f25dc37218';
-import {artifactVersion} from './artifact-links.js?v=011d91f25dc37218';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=011d91f25dc37218';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=011d91f25dc37218';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=011d91f25dc37218';
-import {createColoring} from './coloring.js?v=011d91f25dc37218';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=011d91f25dc37218';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=f84ea86909e27897";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=f84ea86909e27897";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=f84ea86909e27897';
+import {artifactVersion} from './artifact-links.js?v=f84ea86909e27897';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=f84ea86909e27897';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=f84ea86909e27897';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=f84ea86909e27897';
+import {createColoring} from './coloring.js?v=f84ea86909e27897';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=f84ea86909e27897';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -304,7 +304,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=011d91f25dc37218';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=f84ea86909e27897';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -378,7 +378,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=011d91f25dc37218', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=f84ea86909e27897', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -772,7 +772,7 @@ function resolveArtifact(href,turn=Infinity){return resolveArtifactLink(href,lat
 function openArtifact(file){
   artifactUrls.forEach(url=>URL.revokeObjectURL(url));artifactUrls=[];
   const bytes=Uint8Array.from(atob(file.data),c=>c.charCodeAt(0)),ext=file.name.split('.').at(-1).toLowerCase();
-  const type=({png:'image/png',jpg:'image/jpeg',pdf:'application/pdf',csv:'text/csv'})[ext]||'text/plain';
+  const type=({png:'image/png',jpg:'image/jpeg',svg:'image/svg+xml',pdf:'application/pdf',csv:'text/csv'})[ext]||'text/plain';
   const url=URL.createObjectURL(new Blob([bytes],{type}));artifactUrls.push(url);
   $('artifact-title').textContent=file.name;$('artifact-download').href=url;$('artifact-download').download=file.name;
   const version=artifactVersion(file,latest?.artifacts||[]),notice=$('artifact-version');
@@ -781,14 +781,14 @@ function openArtifact(file){
   const preview=$('artifact-preview');preview.replaceChildren();
   $('figure-view-controls').hidden=true;
   preview.removeAttribute('tabindex');preview.removeAttribute('role');preview.removeAttribute('aria-label');preview.removeAttribute('aria-describedby');
-  if(['png','jpg'].includes(ext)){
+  if(['png','jpg','svg'].includes(ext)){
     const img=document.createElement('img'),fit=$('figure-fit'),original=$('figure-original'),help=$('figure-view-help');
     img.alt=file.name;preview.append(img);$('figure-view-controls').hidden=false;
     fit.disabled=original.disabled=true;fit.setAttribute('aria-pressed','true');original.setAttribute('aria-pressed','false');help.textContent='Loading figure…';
     preview.tabIndex=0;preview.setAttribute('role','region');preview.setAttribute('aria-label','Figure preview: '+file.name);preview.setAttribute('aria-describedby','figure-view-help');
     const size=(actual,event)=>{
       img.classList.toggle('original-size',actual);fit.setAttribute('aria-pressed',String(!actual));original.setAttribute('aria-pressed',String(actual));
-      help.textContent=actual?'Original image size: '+img.naturalWidth+' × '+img.naturalHeight+' pixels. Scroll to inspect details; choose Fit figure to see the whole figure.':'Fitted to the preview. Choose Original size to inspect axis labels and other details.';
+      help.textContent=actual?(ext==='svg'?'Original SVG viewport: ':'Original image size: ')+img.naturalWidth+' × '+img.naturalHeight+(ext==='svg'?' CSS pixels.':' pixels.')+' Scroll to inspect details; choose Fit figure to see the whole figure.':'Fitted to the preview. Choose Original size to inspect axis labels and other details.';
       preview.scrollTop=preview.scrollLeft=0;
       if(event?.detail===0)preview.focus();
     };
