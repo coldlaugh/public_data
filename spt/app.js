@@ -16,6 +16,7 @@ let pendingFollowup = null;
 let pointColoring=null,colorVersion='null';
 let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomUUID() + crypto.randomUUID();
 let sampleFile=null, sampleContext='';
+let connectionError=null;
 let projectorClientId;
 try { projectorClientId=sessionStorage.getItem('spt.projector.client'); } catch {}
 if(!/^[0-9a-f]{32}$/.test(projectorClientId||''))projectorClientId=crypto.randomUUID().replaceAll('-','');
@@ -63,7 +64,7 @@ async function api(path,data,auth=active){
   return result;
 }
 
-function error(err) { $('error').textContent = err?.message || ''; }
+function error(err) { $('error').textContent = err?.message || '';connectionError=null; }
 function projectorState() {
   const state=legacyMode&&legacyApi?legacyApi.state():{projection:$('projection').value,projectionReady:projectionWorker===null,
     availableProjections:[...$('projection').options].filter(o=>!o.disabled).map(o=>o.value),
@@ -398,10 +399,16 @@ async function refresh() {
   try {
     const job = await api('/api/jobs/' + target.id, undefined, target);
     if (active?.id === target.id) {
+      if(connectionError&&$('error').textContent===connectionError)error(null);
       render(job);
       projectorBridge.tick(job,target).catch(()=>{}); // Cached result retries on next poll.
     }
-  } catch(err) { error(new Error('Connection interrupted. Retrying; the analysis can continue on the desktop. ' + err.message)); }
+  } catch(err) {
+    if(active?.id===target.id){
+      const message='Connection interrupted. Retrying; the analysis can continue on the desktop. '+err.message;
+      error(new Error(message));connectionError=message;
+    }
+  }
   finally { if (active) pollTimer = setTimeout(refresh, cloudPollDelay(latest,document.hidden)); }
 }
 
