@@ -115,7 +115,7 @@ function renderFileControls() {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
     if(!sending&&(!active||!latest?.files?.length)){
       const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label','Remove '+file.name);
-      remove.onclick=()=>{if(sending||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining);};chip.append(remove);
+      remove.onclick=()=>{if(sending||active&&latest?.files?.length)return;const remaining=files.filter(f=>f!==file);if(active)pendingFiles=remaining;setFiles(remaining);error(null);};chip.append(remove);
     }
     return chip;
   }));
