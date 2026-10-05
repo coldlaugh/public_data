@@ -1,12 +1,12 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=3603a5a51aae8f94";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=3603a5a51aae8f94";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=3603a5a51aae8f94';
-import {artifactVersion} from './artifact-links.js?v=3603a5a51aae8f94';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=3603a5a51aae8f94';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=3603a5a51aae8f94';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=3603a5a51aae8f94';
-import {createColoring} from './coloring.js?v=3603a5a51aae8f94';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=3603a5a51aae8f94';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=016a7456a87253f2";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=016a7456a87253f2";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=016a7456a87253f2';
+import {artifactVersion} from './artifact-links.js?v=016a7456a87253f2';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=016a7456a87253f2';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=016a7456a87253f2';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=016a7456a87253f2';
+import {createColoring} from './coloring.js?v=016a7456a87253f2';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=016a7456a87253f2';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -247,7 +247,7 @@ function selectTracks(ids) {
     if(ids.some(id=>!encoded.has(id))){const failure=new Error('This trajectory has no encoder vector in this projection. Switch to Raw trajectories to inspect it.');failure.code='unknown_track';throw failure;}
     const pending=pendingNativeSelection?.request===projectionGeneration?pendingNativeSelection:null,previous=pending?.ids;
     if(pending)pending.ids=[...ids];
-    try{return legacyApi.select(ids);}catch{if(pending)pending.ids=previous;const failure=new Error('This trajectory is outside the current projection view. Restore all trajectories in View & parameters to inspect it.');failure.code='unknown_track';failure.filtered=true;throw failure;}
+    try{const result=legacyApi.select(ids);showTrajectory(ids);syncTrackChoice();return result;}catch{if(pending)pending.ids=previous;const failure=new Error('This trajectory is outside the current projection view. Restore all trajectories in View & parameters to inspect it.');failure.code='unknown_track';failure.filtered=true;throw failure;}
   }
   if(pendingNativeSelection?.request===projectionGeneration)pendingNativeSelection.ids=[...ids];
   selected=new Set(ids);draw();showTrajectory(ids);syncTrackChoice();return {selectedTrackIds:[...selected]};
@@ -353,7 +353,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=3603a5a51aae8f94';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=016a7456a87253f2';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -382,6 +382,7 @@ async function setProjection(method,settings=null) {
       if(snapshot.controlsChanged)return;
       if(selectionToSync!==null&&snapshot.selectionChanged)selectionToSync=snapshot.selectedTrackIds;
       const ids=selectionToSync??snapshot.selectedTrackIds;
+      const selectionChanged=ids.length!==selected.size||ids.some(id=>!selected.has(id));
       selected=new Set(ids);
       $('projection-notice').textContent=snapshot.projectionNotice||'';$('projection-notice').hidden=!snapshot.projectionNotice;
       for(const option of $('projection').options)option.disabled=!snapshot.availableProjections.includes(option.value);
@@ -389,7 +390,10 @@ async function setProjection(method,settings=null) {
       updatePlotHelp(snapshot.projection);
       $('selection').textContent=selected.size?selected.size+' selected':'No trajectories selected';
       $('plot-meta').textContent=snapshot.pointCount+' trajector'+(snapshot.pointCount===1?'y':'ies');
-      showTrajectory(ids);updateTrackFinder(true);updateLegendScope();
+      // Projection progress, camera state and warnings must respect a closed
+      // preview. Explicit inspection and native point selections can reopen it.
+      if(snapshot.selectionChanged||selectionChanged||!$('trajectory-card').hidden)showTrajectory(ids);
+      updateTrackFinder(true);updateLegendScope();
     };
     if(legacyVersion!==embeddingId){
       const version=embeddingId, usedApi=legacyApi;
@@ -435,7 +439,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=3603a5a51aae8f94', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=016a7456a87253f2', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
