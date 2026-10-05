@@ -1,10 +1,10 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=7c5b6f4cc56cf4de";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=7c5b6f4cc56cf4de";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=7c5b6f4cc56cf4de';
-import {artifactVersion} from './artifact-links.js?v=7c5b6f4cc56cf4de';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=7c5b6f4cc56cf4de';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=7c5b6f4cc56cf4de';
-import {createColoring} from './coloring.js?v=7c5b6f4cc56cf4de';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=a0fa82a156c96383";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=a0fa82a156c96383";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=a0fa82a156c96383';
+import {artifactVersion} from './artifact-links.js?v=a0fa82a156c96383';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack} from './trajectory-data.js?v=a0fa82a156c96383';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=a0fa82a156c96383';
+import {createColoring} from './coloring.js?v=a0fa82a156c96383';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -284,7 +284,7 @@ async function setProjection(method) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=7c5b6f4cc56cf4de';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=a0fa82a156c96383';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -339,7 +339,7 @@ async function setCompactProjection(method) {
   if(method==='raw') { $('plot-title').textContent='Trajectory preview'; preview(true); return {projection:'raw'}; }
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=7c5b6f4cc56cf4de', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=a0fa82a156c96383', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -706,6 +706,7 @@ function openArtifact(file){
   else if(ext==='pdf'){const p=document.createElement('p');p.textContent='Download this PDF to open it in your document viewer.';preview.append(p);}
   else {const text=new TextDecoder().decode(bytes);if(ext==='md')preview.append(renderAnswer(text,href=>resolveArtifact(href,file.turn),openArtifact));else{const pre=document.createElement('pre');pre.textContent=text.slice(0,200000)+(text.length>200000?'\n… Download the full file to read more.':'');preview.append(pre);}}
   if(!$('artifact-dialog').open)$('artifact-dialog').showModal();
+  preview.scrollTop=0;preview.scrollLeft=0;$('artifact-dialog').scrollTop=0;
 }
 $('artifact-close').onclick=()=>$('artifact-dialog').close();
 $('artifact-dialog').onclick=e=>{if(e.target===$('artifact-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}};
