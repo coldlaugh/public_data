@@ -1,7 +1,7 @@
 import {SPT_API_ORIGIN} from "./deployment-config.js";
 import {createCloudApi,cloudPollDelay} from "./cloud-client.js";
 import {renderAnswer,resolveArtifactLink} from './answer-renderer.js';
-import {ProjectorClient, readEmbeddings, questionForDisplay} from './projector-client.js';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory} from './projector-client.js';
 import {createColoring} from './coloring.js';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
@@ -15,6 +15,7 @@ let legacyApi=null, legacyVersion=null, legacyMode=false, projectionGeneration=0
 let pendingFollowup = null;
 let pointColoring=null,colorVersion='null';
 let pollTimer, sending = false, lastSignature = '', creationKey = crypto.randomUUID() + crypto.randomUUID();
+let sampleFile=null, sampleContext='';
 let projectorClientId;
 try { projectorClientId=sessionStorage.getItem('spt.projector.client'); } catch {}
 if(!/^[0-9a-f]{32}$/.test(projectorClientId||''))projectorClientId=crypto.randomUUID().replaceAll('-','');
@@ -51,7 +52,7 @@ function showJourney(){
   const talking=!!active||started;main.classList.toggle('onboarding',!talking);$('welcome').hidden=talking;
   const destination=talking?$('data-panel'):$('welcome-upload');
   if($('upload-box').parentElement!==destination)destination.append($('upload-box'));
-  if(!talking){panels(true,true);$('send-hint').textContent='Upload files, describe your format, or ask to use demo data.';}
+  if(!talking){panels(true,true);$('send-hint').textContent='Include position units and time between frames, or try demo data.';}
 }
 const cloudApi=createCloudApi({origin:SPT_API_ORIGIN,encode,onUploadProgress:(sent,total)=>{$('status').textContent='Uploading '+Math.round(sent/Math.max(1,total)*100)+'%…';},onExpiry:id=>{
   const all=savedJobs().filter(j=>j.id!==id);localStorage.setItem('spt.jobs',JSON.stringify(all));renderHistory();
@@ -100,6 +101,16 @@ function setFiles(value) {
   files = value;
   $('dataset-count').textContent=files.length?`${files.length} file${files.length===1?'':'s'}`:'Add trajectories';
   $('data-panel').open=!files.length;
+  renderFileControls();
+  preview();showJourney();
+}
+function renderFileControls() {
+  const committed=!!(active&&latest?.files?.length);
+  $('files').disabled=$('sample').disabled=sending||committed;
+  $('dataset-lock').hidden=!committed;
+  const storedDemo=latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1];
+  $('demo-info').hidden=!(sampleFile&&files.includes(sampleFile))&&!storedDemo;
+  if(storedDemo)$('demo-context').replaceChildren(renderAnswer(storedDemo));
   $('file-list').replaceChildren(...files.map(file => {
     const chip = document.createElement('span'); chip.className = 'file-chip';chip.append(document.createTextNode(file.name));
     if(!sending&&(!active||!latest?.files?.length)){
@@ -108,7 +119,6 @@ function setFiles(value) {
     }
     return chip;
   }));
-  preview();showJourney();
 }
 function resetEmbedding() {
   pointColoring=null;colorVersion='null';$('color-legend').hidden=true;
@@ -226,9 +236,15 @@ $('files').addEventListener('change', async event => {
   } catch (err) { error(err); }
 });
 async function loadSample(stageQuestion=true) {
+  if(sending&&stageQuestion)throw new Error('Wait for your request to finish sending.');
   if (files.length) throw new Error('Start a new analysis before replacing your dataset.');
+  const questionBefore=$('question').value,jobBefore=active?.id;
   const sample = await api('/api/sample', undefined, null);
-  if(active)pendingFiles=sample.files;setFiles(sample.files);if(stageQuestion)$('question').value='Use demo data. What kind of motion do these particles exhibit?';
+  if(active?.id!==jobBefore||files.length)throw new Error('The dataset changed while the demo was loading. Try again.');
+  sampleFile=sample.files[0];sampleContext=sample.question.split('## The question')[0];
+  $('demo-context').replaceChildren(renderAnswer(sampleContext));
+  if(active)pendingFiles=sample.files;setFiles(sample.files);
+  if(stageQuestion&&!questionBefore.trim()&&!$('question').value.trim())$('question').value='Use demo data. What kind of motion do these particles exhibit?';
   error(null);
   return {...sample,questionStaged:stageQuestion};
 }
@@ -248,14 +264,15 @@ async function submitQuestion(question) {
   if (sending) throw new Error('A request is already being sent.');
   if (!question.trim()) throw new Error('Enter your question first.');
 
-  sending = true; $('send').disabled = true;
+  sending = true; $('send').disabled = true;renderFileControls();
   try {
     let q = question.trim();
     const demoRequest=q.match(/\b(?:use|try|load|show|give)\b(?:(?!\b(?:no|without)\b)[^.!?]){0,50}\b(?:demo|sample)\b|^(?:demo|sample)(?: data)?[.!?]?$/i);
     const demoNegated=demoRequest&&/\b(?:don't|do not|not|never|without)\s+(?:\w+\s+){0,2}$/i.test(q.slice(0,demoRequest.index));
     if(!files.length&&demoRequest&&!demoNegated){
-      const demo=await loadSample(false);q+='\n\nDemo dataset context:\n'+demo.question.split('## The question')[0];
+      await loadSample(false);
     }
+    if(sampleFile&&files.includes(sampleFile)&&(!active||pendingFiles.includes(sampleFile)))q+='\n\nDemo dataset context:\n'+sampleContext;
     started=true;showJourney();$('status').textContent='Sending your question…';
     const selection=selected.size?{ids:[...selected],totalCount:selected.size}:null;
     if (!active) {
@@ -269,7 +286,7 @@ async function submitQuestion(question) {
     }
     $('question').value = ''; error(null); await refresh();
     return {id: active.id, status: latest?.status};
-  } finally { if(!active)started=false;showJourney();sending = false; $('send').disabled = false; }
+  } finally { if(!active)started=false;showJourney();sending = false; $('send').disabled = false;renderFileControls(); }
 }
 $('composer').onsubmit = event => { event.preventDefault(); submitQuestion($('question').value).catch(error); };
 $('cancel').onclick = async () => {
@@ -287,12 +304,12 @@ function render(job) {
     cancelling:'Stopping analysis',interrupted:'Desktop connection interrupted'};
   $('status').textContent = status[job.status] || job.status;
   $('cancel').hidden = !['queued', 'running', 'cancelling'].includes(job.status);
-  $('files').disabled = $('sample').disabled = job.files.length>0;
+  renderFileControls();
   $('send-hint').textContent = ['running','queued'].includes(job.status) ? 'Follow-ups will run after the current analysis.' : 'You can return to this conversation from this browser.';
   if (!files.length&&job.files.length) setFiles(job.files);
   const currentTurn=job.turns.findIndex(t=>t.status==='running');
   const projectionStage=job.events.filter(e=>e.kind==='progress'&&e.turn===currentTurn).at(-1)?.stage;
-  const waiting=!embedding&&(['running','queued'].includes(job.status)||projectionStage==='embeddings_unavailable')&&job.files.length>0;
+  const waiting=!embedding&&!points.length&&(['running','queued'].includes(job.status)||projectionStage==='embeddings_unavailable')&&job.files.length>0;
   $('projection-progress').hidden=!waiting;
   $('projection-progress-text').textContent=projectionStage==='embeddings_unavailable'?'Projection preparation or transfer failed. The agent can preprocess the data and retry publishing the embeddings.':projectionStage==='embeddings'?'Computing and transferring encoder vectors…':'Preparing the projection. Other file formats may need the agent to normalize columns and units first.';
   const vectorFiles=job.artifacts.filter(f=>f.name.startsWith('encoder_embeddings')&&f.name.endsWith('.json'));
@@ -417,6 +434,7 @@ function preview(keepSelection=false) {
 }
 const canvas=$('plot');let projected=[];
 function draw(){
+  $('plot-help').textContent=$('projection').value==='raw'?'Click a trajectory to inspect it; drag a lasso to select several. Selected tracks accompany your next question.':'Each point represents one trajectory’s encoder vector. Projection distances have no spatial units and clusters alone do not establish a motion model. Click a point to inspect its trajectory.';
   const box=canvas.getBoundingClientRect();const scale=devicePixelRatio||1;
   canvas.width=box.width*scale;canvas.height=box.height*scale;
   const c=canvas.getContext('2d');c.scale(scale,scale);c.clearRect(0,0,box.width,box.height);
@@ -436,12 +454,21 @@ function draw(){
     return {...t,path};
   });c.globalAlpha=1;
   if(polygon.length){c.beginPath();polygon.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.strokeStyle='#4779dc';c.lineWidth=1.5;c.stroke();}
-  $('selection').textContent=selected.size?`${selected.size} selected trajectories`:'All trajectories';
+  $('selection').textContent=selected.size?`${selected.size} selected trajector${selected.size===1?'y':'ies'}`:'All trajectories';
 }
 function inside([x,y],poly){let hit=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if((yi>y)!=(yj>y)&&x<(xj-xi)*(y-yi)/(yj-yi)+xi)hit=!hit;}return hit;}
 canvas.onpointerdown=e=>{drawing=true;polygon=[[e.offsetX,e.offsetY]];canvas.setPointerCapture(e.pointerId);};
 canvas.onpointermove=e=>{if(drawing){polygon.push([e.offsetX,e.offsetY]);draw();}};
-canvas.onpointerup=()=>{if(drawing&&polygon.length>2){selected=new Set(projected.filter(t=>t.path.some(p=>inside(p,polygon))).map(t=>t.key));}drawing=false;polygon=[];draw();showTrajectory([...selected]);};
+canvas.onpointerup=e=>{
+  if(drawing){
+    const start=polygon[0],end=[e.offsetX,e.offsetY];
+    if(polygon.every(p=>Math.hypot(p[0]-start[0],p[1]-start[1])<=5)&&Math.hypot(end[0]-start[0],end[1]-start[1])<=5){
+      const hit=pickTrajectory(projected,end);selected=new Set(hit?[hit]:[]);
+    }else if(polygon.length>2)selected=new Set(projected.filter(t=>t.path.some(p=>inside(p,polygon))).map(t=>t.key));
+  }
+  drawing=false;polygon=[];draw();showTrajectory([...selected]);
+};
+canvas.onpointercancel=()=>{drawing=false;polygon=[];draw();};
 $('clear-selection').onclick=()=>{selectTracks([]);showTrajectory([]);};
 $('projection-settings').onclick=()=>{$('view-panel').open=false;legacyApi?.openParameters();};
 new ResizeObserver(draw).observe(canvas);

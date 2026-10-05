@@ -1,3 +1,17 @@
+// Pick in screen pixels, including between samples on a raw trajectory.
+export function pickTrajectory(tracks,[x,y],radius=8){
+  let nearest=null,best=radius*radius;
+  for(const track of tracks){
+    for(let i=0;i<track.path.length;i++){
+      const a=track.path[i],b=track.path[i+1]||a,dx=b[0]-a[0],dy=b[1]-a[1];
+      const t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));
+      const distance=(x-a[0]-t*dx)**2+(y-a[1]-t*dy)**2;
+      if(distance<=best){nearest=track.key;best=distance;}
+    }
+  }
+  return nearest;
+}
+
 export function questionForDisplay(turn){
   let text=turn.question,selection=turn.selection;
   if(!selection){
