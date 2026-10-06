@@ -1,15 +1,16 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=060a4a39f86dfbb5";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=060a4a39f86dfbb5";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=060a4a39f86dfbb5';
-import {artifactVersion} from './artifact-links.js?v=060a4a39f86dfbb5';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=060a4a39f86dfbb5';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=060a4a39f86dfbb5';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=060a4a39f86dfbb5';
-import {createColoring} from './coloring.js?v=060a4a39f86dfbb5';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=060a4a39f86dfbb5';
-import {createViewRecovery} from './view-recovery.js?v=060a4a39f86dfbb5';
-import {createAgentTools} from './agent-tools.js?v=060a4a39f86dfbb5';
-import {createAgentReceipts} from './agent-receipts.js?v=060a4a39f86dfbb5';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=d1933494b4abb05f";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d1933494b4abb05f";
+import {validateUpload,uploadKind} from './upload-formats.js?v=d1933494b4abb05f';
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d1933494b4abb05f';
+import {artifactVersion} from './artifact-links.js?v=d1933494b4abb05f';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d1933494b4abb05f';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=d1933494b4abb05f';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d1933494b4abb05f';
+import {createColoring} from './coloring.js?v=d1933494b4abb05f';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d1933494b4abb05f';
+import {createViewRecovery} from './view-recovery.js?v=d1933494b4abb05f';
+import {createAgentTools} from './agent-tools.js?v=d1933494b4abb05f';
+import {createAgentReceipts} from './agent-receipts.js?v=d1933494b4abb05f';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -381,7 +382,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=060a4a39f86dfbb5';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d1933494b4abb05f';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -471,7 +472,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=060a4a39f86dfbb5', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=d1933494b4abb05f', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -504,9 +505,8 @@ $('files').addEventListener('change', async event => {
     if(files.length+chosen.length>12||selectedBytes+chosen.reduce((n,f)=>n+f.size,0)>MAX_UPLOAD_BYTES)throw new Error('Choose up to 12 files, totaling at most '+MAX_UPLOAD_BYTES/1024/1024+' MiB.');
     const added=[];
     for(const f of chosen){
-      const bytes=new Uint8Array(await f.arrayBuffer());let text;
-      try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new Error(f.name+': this file is not valid UTF-8 text. Export or convert it to UTF-8 text before adding it. Binary files need a text export. Previously selected files are still available; none of this batch was added.');}
-      if(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text))throw new Error(f.name+': this file contains binary or unsupported control characters. Export it as UTF-8 text before adding it. Previously selected files are still available; none of this batch was added.');
+      const bytes=new Uint8Array(await f.arrayBuffer());
+      try{validateUpload(f.name,bytes);}catch(err){throw new Error(err.message+' Previously selected files are still available; none of this batch was added.');}
       added.push({name:f.name,bytes:f.size,data:encode(bytes)});
     }
     if(workspaceKey()!==origin||files!==originalFiles||sending||loadingWorkspace||unavailableWorkspace)throw new Error('The workspace changed while reading files. Add them again in the intended analysis.');
@@ -767,6 +767,7 @@ function preview(keepSelection=false) {
   const warnings=[];
   for (const file of files) {
     const normalizedPreview=keepSelection&&originalPoints.some(point=>point.fromEncoder&&point.file===file.name);
+    if(uploadKind(file.name)){warnings.push(file.name+': supporting PDF/image retained for the agent; it is not a trajectory table or projector embedding.');continue;}
     if (!/\.(csv|tsv)$/i.test(file.name)) {if(!normalizedPreview)warnings.push(file.name+': automatic browser preview supports CSV/TSV files. This file remains in the dataset; describe its format, columns and units in your question.');continue;}
     // Large datasets are preprocessed by the agent; avoid splitting millions of rows on the UI thread.
     if ((file.bytes??file.data.length*3/4)>16*1024*1024){warnings.push(file.name+': automatic preview of the original file is deferred above 16 MiB. The complete file remains in the dataset for analysis.');continue;}

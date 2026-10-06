@@ -3,8 +3,8 @@
 <head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
-<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=060a4a39f86dfbb5"><link rel="stylesheet" href="./style.css?v=060a4a39f86dfbb5">
-<script src="./app.js?v=060a4a39f86dfbb5" type="module"></script>
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=d1933494b4abb05f"><link rel="stylesheet" href="./style.css?v=d1933494b4abb05f">
+<script src="./app.js?v=d1933494b4abb05f" type="module"></script>
 </head>
 <body>
 <header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
@@ -12,7 +12,7 @@
 <main class="onboarding">
 <section class="explorer" id="explorer" aria-label="Dataset explorer">
 <div class="panel-head"><h1>Projector</h1><button id="hide-data" class="quiet" aria-label="Hide dataset panel">Hide</button></div>
-<div id="data-dock"><details id="data-panel" class="workspace-drawer" open><summary>Dataset <span id="dataset-count">Add trajectories</span></summary><div id="upload-box" class="upload-box"><label for="files" class="upload-label">Upload trajectory files <span>Text data · any extension, including .spt · up to 128 MiB</span></label><input id="files" type="file" multiple><button id="sample" class="quiet">Use demo data</button><div id="file-list" class="file-list" aria-live="polite"></div>
+<div id="data-dock"><details id="data-panel" class="workspace-drawer" open><summary>Dataset <span id="dataset-count">Add trajectories</span></summary><div id="upload-box" class="upload-box"><label for="files" class="upload-label">Upload trajectory files <span>Text data, PDFs &amp; images · up to 128 MiB</span></label><input id="files" type="file" multiple><button id="sample" class="quiet">Use demo data</button><div id="file-list" class="file-list" aria-live="polite"></div>
 <p id="dataset-lock" class="muted" hidden>You can add files to your next question. Files already sent remain part of this analysis.</p>
 <details id="demo-info" hidden><summary>Demo acquisition context</summary><div id="demo-context"></div></details></div></details></div>
 <p id="plot-help" class="explorer-help">Click a trajectory to inspect it; drag a lasso to select several. Selected tracks accompany your next question.</p>
