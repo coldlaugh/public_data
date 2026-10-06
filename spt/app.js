@@ -1,15 +1,15 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=060a4a39f86dfbb5";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=060a4a39f86dfbb5";
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=060a4a39f86dfbb5';
-import {artifactVersion} from './artifact-links.js?v=060a4a39f86dfbb5';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=060a4a39f86dfbb5';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=060a4a39f86dfbb5';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=060a4a39f86dfbb5';
-import {createColoring} from './coloring.js?v=060a4a39f86dfbb5';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=060a4a39f86dfbb5';
-import {createViewRecovery} from './view-recovery.js?v=060a4a39f86dfbb5';
-import {createAgentTools} from './agent-tools.js?v=060a4a39f86dfbb5';
-import {createAgentReceipts} from './agent-receipts.js?v=060a4a39f86dfbb5';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=6051a7c90e0d7413";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=6051a7c90e0d7413";
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=6051a7c90e0d7413';
+import {artifactVersion} from './artifact-links.js?v=6051a7c90e0d7413';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=6051a7c90e0d7413';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=6051a7c90e0d7413';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=6051a7c90e0d7413';
+import {createColoring} from './coloring.js?v=6051a7c90e0d7413';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=6051a7c90e0d7413';
+import {createViewRecovery} from './view-recovery.js?v=6051a7c90e0d7413';
+import {createAgentTools} from './agent-tools.js?v=6051a7c90e0d7413';
+import {createAgentReceipts} from './agent-receipts.js?v=6051a7c90e0d7413';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -381,7 +381,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=060a4a39f86dfbb5';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=6051a7c90e0d7413';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -471,7 +471,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=060a4a39f86dfbb5', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=6051a7c90e0d7413', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{

@@ -3,8 +3,8 @@
 <head><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self'; connect-src 'self' https://spt-coordinator-q2lr5x2yuq-uc.a.run.app; object-src 'none'; base-uri 'self'">
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Ask scientific questions about single-particle trajectories and explore the evidence.">
-<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=060a4a39f86dfbb5"><link rel="stylesheet" href="./style.css?v=060a4a39f86dfbb5">
-<script src="./app.js?v=060a4a39f86dfbb5" type="module"></script>
+<title>SPT · Research workspace</title><link rel="stylesheet" href="./vendor/katex/katex.min.css?v=6051a7c90e0d7413"><link rel="stylesheet" href="./style.css?v=6051a7c90e0d7413">
+<script src="./app.js?v=6051a7c90e0d7413" type="module"></script>
 </head>
 <body>
 <header><button id="toggle-sidebar" class="quiet" aria-label="Toggle conversation sidebar" aria-expanded="false" aria-controls="session-sidebar">☰</button><a href="./" class="brand">META-SiM <span>SPT workspace</span></a><span class="edition">RESEARCH PREVIEW</span></header>
@@ -41,6 +41,7 @@
 <details id="connection-panel"><summary>Connection history</summary><div id="system-activity" class="muted"></div></details>
 <p id="recovery-note" role="status" class="muted" hidden>The original analysis's files were not loaded in this tab. Re-upload the files and reselect trajectories before asking about that dataset.</p>
 <form id="composer"><label for="question">Your question or follow-up</label><textarea id="question" rows="3" placeholder="Describe your data, ask a question, or say ‘use demo data’…" required aria-describedby="question-scope send-hint"></textarea><p id="question-scope" role="status" hidden></p><div class="composer-bottom"><span id="send-hint">No fixed column format required. Tell us the units and time between frames.</span><button type="submit" id="send">Send <span>↗</span></button></div></form>
+<p class="muted" id="analysis-limits">Shared site limits: 100 analysis requests per rolling hour (including follow-ups and completed analyses), 4 queued/running at once, and 1 outstanding per browser. Each conversation allows 20 messages.</p>
 <p class="muted">Sessions expire seven days after creation. Download any results you want to keep.</p>
 <p id="error" role="alert"></p>
 </section>
