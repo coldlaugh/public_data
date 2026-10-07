@@ -1,16 +1,16 @@
-import {SPT_API_ORIGIN} from "./deployment-config.js?v=d1933494b4abb05f";
-import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=d1933494b4abb05f";
-import {validateUpload,uploadKind} from './upload-formats.js?v=d1933494b4abb05f';
-import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=d1933494b4abb05f';
-import {artifactVersion} from './artifact-links.js?v=d1933494b4abb05f';
-import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=d1933494b4abb05f';
-import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=d1933494b4abb05f';
-import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=d1933494b4abb05f';
-import {createColoring} from './coloring.js?v=d1933494b4abb05f';
-import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=d1933494b4abb05f';
-import {createViewRecovery} from './view-recovery.js?v=d1933494b4abb05f';
-import {createAgentTools} from './agent-tools.js?v=d1933494b4abb05f';
-import {createAgentReceipts} from './agent-receipts.js?v=d1933494b4abb05f';
+import {SPT_API_ORIGIN} from "./deployment-config.js?v=4de9f9b2ce961f57";
+import {createCloudApi,cloudPollDelay} from "./cloud-client.js?v=4de9f9b2ce961f57";
+import {validateUpload,uploadKind} from './upload-formats.js?v=4de9f9b2ce961f57';
+import {renderAnswer,resolveArtifactLink} from './answer-renderer.js?v=4de9f9b2ce961f57';
+import {artifactVersion} from './artifact-links.js?v=4de9f9b2ce961f57';
+import {buildAnalysisBundle,listedResults} from './result-bundle.js?v=4de9f9b2ce961f57';
+import {parseTrajectoryTable,matchingTracks,rawPreviewTracks,encoderPreviewTrack,trajectoryAcquisitionSummary} from './trajectory-data.js?v=4de9f9b2ce961f57';
+import {ProjectorClient, readEmbeddings, questionForDisplay, pickTrajectory, selectSavedJob, planProjectionSelection} from './projector-client.js?v=4de9f9b2ce961f57';
+import {createColoring} from './coloring.js?v=4de9f9b2ce961f57';
+import {projectionFigureContext,renderProjectionFigure} from './projection-figure.js?v=4de9f9b2ce961f57';
+import {createViewRecovery} from './view-recovery.js?v=4de9f9b2ce961f57';
+import {createAgentTools} from './agent-tools.js?v=4de9f9b2ce961f57';
+import {createAgentReceipts} from './agent-receipts.js?v=4de9f9b2ce961f57';
 const MAX_UPLOAD_BYTES=128*1024*1024;
 const $ = id => document.getElementById(id);
 const main = document.querySelector('main');
@@ -290,17 +290,19 @@ function setFiles(value, preserveSelection=false) {
   if(preserveSelection){const available=new Set(points.map(track=>track.key));selected=new Set(previousSelection.filter(id=>available.has(id)));draw();syncTrackChoice();}
   showJourney();if(!preserveSelection||previewWasOpen||!selected.size)showTrajectory([...selected]);
 }
+function analysisAwaitingCompletion(){
+  return !!active&&!['completed','failed','cancelled'].includes(latest?.status);
+}
 function renderFileControls() {
   const committed=!!(active&&latest?.files?.length);
   $('new').disabled=$('history').disabled=sending;
   for(const button of document.querySelectorAll('#conversation-list button,#draft-list button'))button.disabled=sending;
-  $('send').disabled=sending||loadingWorkspace||unavailableWorkspace||missingAnalysisLink;
+  $('send').disabled=sending||loadingWorkspace||unavailableWorkspace||missingAnalysisLink||analysisAwaitingCompletion();
   $('start-new-analysis').disabled=sending;
   $('continue-analysis').disabled=$('retry-analysis').disabled=sending;
   $('recovery-note').hidden=!missingRecoveryFiles;
   $('files').disabled=sending||loadingWorkspace||unavailableWorkspace;
   $('sample').disabled=sending||loadingWorkspace||unavailableWorkspace||files.length>0;
-  if(active&&pendingFiles.length&&!['completed','failed','cancelled'].includes(latest?.status))$('send').disabled=true;
   $('dataset-lock').hidden=!committed;
   const storedDemo=latest?.turns?.find(t=>t.question.includes('\n\nDemo dataset context:\n'))?.question.split('\n\nDemo dataset context:\n')[1];
   $('demo-info').hidden=!(sampleFile&&files.includes(sampleFile))&&!storedDemo;
@@ -320,7 +322,7 @@ function renderSendHint(){
   else if(missingAnalysisLink)$('send-hint').textContent='Start a new analysis here to send this question.';
   else if(unavailableWorkspace)$('send-hint').textContent='This unavailable analysis cannot accept follow-ups.';
   else if(!active)$('send-hint').textContent=files.length?'Unsent analysis. Your dataset will accompany your question.':'Include position units and time between frames, or try demo data.';
-  else $('send-hint').textContent=['running','queued'].includes(latest?.status)?'Follow-ups will run after the current analysis.':'You can return to this conversation from this browser.';
+  else $('send-hint').textContent=analysisAwaitingCompletion()?'Wait for the current analysis to finish before sending a follow-up. You can keep editing your draft.':'You can return to this conversation from this browser.';
   if(active&&pendingFiles.length&&!sending)$('send-hint').textContent=pendingFiles.length+' new file'+(pendingFiles.length===1?'':'s')+' will accompany your next question.'+(!['completed','failed','cancelled'].includes(latest?.status)?' Wait for the current analysis to finish.':'');
   if(active&&!unavailableWorkspace&&!sending)$('send-hint').textContent+=viewRecoveryFailed?' View settings could not be saved for reload.':' View settings recover after reload in this tab; unsent questions do not.';
 }
@@ -382,7 +384,7 @@ async function setProjection(method,settings=null) {
   frame.parentElement.classList.add('legacy');$('plot-empty').hidden=true;
   $('plot-meta').textContent='Loading the SPT projector…';
   try{
-    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=d1933494b4abb05f';
+    if(!frame.getAttribute('src'))frame.src='./legacy-projector.html?v=4de9f9b2ce961f57';
     const deadline=Date.now()+25000;
     while(!frame.contentWindow?.sptLegacy&&Date.now()<deadline){
       if(request!==projectionGeneration)return {cancelled:true};
@@ -472,7 +474,7 @@ async function setCompactProjection(method) {
   for(const option of $('projection').options)option.disabled=small&&['umap','tsne'].includes(option.value);
   $('plot-title').textContent=method==='tsne'?'t-SNE':method.toUpperCase();
   $('plot-meta').textContent='Computing in your browser…';
-  const worker=new Worker(new URL('./projection-worker.js?v=d1933494b4abb05f', import.meta.url),{type:'module'}); projectionWorker=worker;
+  const worker=new Worker(new URL('./projection-worker.js?v=4de9f9b2ce961f57', import.meta.url),{type:'module'}); projectionWorker=worker;
   return new Promise((resolve,reject)=>{
     finishProjection=resolve;
     worker.onmessage=event=>{
@@ -535,7 +537,7 @@ async function submitQuestion(question,{followupRequestId=null}={}) {
   if(unavailableWorkspace)throw new Error('Continue in a new analysis before sending another question.');
   if(loadingWorkspace)throw new Error('Wait for this analysis to load before sending a follow-up.');
   if (!question.trim()) throw new Error('Enter your question first.');
-  if(active&&pendingFiles.length&&!['completed','failed','cancelled'].includes(latest?.status))throw new Error('Your new files are staged. Wait for the current analysis to finish before sending them with your next question.');
+  if(analysisAwaitingCompletion())throw new Error('Wait for the current analysis to finish before sending a follow-up. Your draft and any new files are preserved.');
 
   const originKey=workspaceKey(),originJob=active,originCreationKey=creationKey;
   let submittedJob=originJob;
